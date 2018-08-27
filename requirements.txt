@@ -1,0 +1,46 @@
+FCN Semantic
+
+USE CASE Description
+
+1. A model is created
+2. Train test patches get extracted and a model gets trained with this data.
+3. Evaluate with metric calculations
+Triggers
+
+1. 
+
+Actors
+
+1. A model (Contains metrics like F1 score)
+2. Patches (Contains some metrics like patch size)
+
+Preconditions
+
+1. Data exists
+
+
+Goals
+
+1. Model gets trained and evaluated
+
+Not Available
+
+1. Failed conclusion
+
+Steps of Execution
+
+1. Dataset (patches) gets extracted from the images
+
+2. A model gets created
+
+3. The model gets trained
+
+4. Model (trained model) gets evaluated with test data
+
+Pseudo-code
+
+dataset.create
+model.create
+model.train(dataset.train)
+model.evaluate(dataset.test)
+

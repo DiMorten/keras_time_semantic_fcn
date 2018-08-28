@@ -29,6 +29,13 @@ import deb
 from keras_weighted_categorical_crossentropy import weighted_categorical_crossentropy
 
 parser = argparse.ArgumentParser(description='')
+parser.add_argument('-tl', '--t_len', dest='t_len',
+					type=int, default=7, help='t len')
+parser.add_argument('-cn', '--class_n', dest='class_n',
+					type=int, default=11, help='class_n')
+parser.add_argument('-chn', '--channel_n', dest='channel_n',
+					type=int, default=2, help='channel number')
+
 parser.add_argument('-pl', '--patch_len', dest='patch_len',
 					type=int, default=32, help='patch len')
 parser.add_argument('-pstr', '--patch_step_train', dest='patch_step_train',
@@ -55,6 +62,9 @@ parser.add_argument('-is', '--im_store', dest='im_store',
 parser.add_argument('-eid', '--exp_id', dest='exp_id',
 					default='default', help='Experiment id')
 
+parser.add_argument('-path', '--path', dest='path',
+					default='../data/', help='Experiment id')
+
 args = parser.parse_args()
 
 if args.patch_step_test==None:
@@ -65,7 +75,8 @@ deb.prints(args.patch_step_test)
 # ================= Generic class for init values =============================================== #
 class NetObject(object):
 
-	def __init__(self, patch_len=32, patch_step_train=32,patch_step_test=32, path="../data/", im_name_train="Image_Train.tif", im_name_test="Image_Test.tif", label_name_train="Reference_Train.tif", label_name_test="Reference_Test.tif", channel_n=3, debug=1, class_n=5,exp_id="skip_connections"):
+	def __init__(self, patch_len=32, patch_step_train=32,patch_step_test=32, path="../data/", im_name_train="Image_Train.tif", im_name_test="Image_Test.tif", label_name_train="Reference_Train.tif", label_name_test="Reference_Test.tif", channel_n=2, debug=1,exp_id="skip_connections",
+		t_len=7,class_n=11):
 		self.patch_len = patch_len
 		self.path = {"v": path, 'train': {}, 'test': {}}
 		self.image = {'train': {}, 'test': {}}
@@ -77,14 +88,14 @@ class NetObject(object):
 		self.path['test']['in'] = path + 'train_test/test/ims/'
 		self.path['train']['label'] = path + 'train_test/train/labels/'
 		self.path['test']['label'] = path + 'train_test/test/labels/'
-		self.channel_n = 3
+		self.channel_n = channel_n
 		self.debug = debug
-		self.class_n = 5
+		self.class_n = class_n
 		self.report={'best':{}}
 		self.report['exp_id']=exp_id
 		self.report['best']['text_name']='result_'+exp_id+'.txt'
 		self.report['best']['text_path']='../results/'+self.report['best']['text_name']
-
+		self.t_len=t_len
 # ================= Dataset class implements data loading, patch extraction, metric calculation and image reconstruction =======#
 class Dataset(NetObject):
 
@@ -112,8 +123,43 @@ class Dataset(NetObject):
 			deb.prints(self.image["test"]['label'].shape)
 
 	def create_load(self):
-		glob.glob
 
+		self.patches_list={'train':{},'test':{}}
+		#self.patches_list['train']['ims']=glob.glob(self.path['train']['in']+'*.npy')
+		#self.patches_list['train']['label']=glob.glob(self.path['train']['label']+'*.npy')
+
+		#self.patches_list['test']['ims']=glob.glob(self.path['test']['in']+'*.npy')
+		#self.patches_list['test']['label']=glob.glob(self.path['test']['label']+'*.npy')
+
+		self.patches['train']['in'],self.patches_list['train']['ims']=self.folder_load(self.path['train']['in'])
+		self.patches['train']['label'],self.patches_list['train']['label']=self.folder_load(self.path['train']['label'])
+		self.patches['test']['in'],self.patches_list['test']['ims']=self.folder_load(self.path['test']['in'])
+		self.patches['test']['label'],self.patches_list['test']['label']=self.folder_load(self.path['test']['label'])
+		
+		self.patches['train']['label']=self.batch_label_to_one_hot(self.patches['train']['label'])
+		self.patches['test']['label']=self.batch_label_to_one_hot(self.patches['test']['label'])
+
+		deb.prints(len(self.patches_list['test']['label']))
+		deb.prints(len(self.patches_list['test']['ims']))
+		deb.prints(self.patches['train']['in'].shape)
+		deb.prints(self.patches['train']['in'].dtype)
+		
+		deb.prints(self.patches['train']['label'].shape)
+		
+	def batch_label_to_one_hot(self,im):
+		im_one_hot=np.zeros((im.shape[0],im.shape[1],im.shape[2],self.class_n))
+		print(im_one_hot.shape)
+		print(im.shape)
+		for clss in range(0,self.class_n):
+			im_one_hot[:,:,:,clss][im[:,:,:]==clss]=1
+		return im_one_hot
+
+	def folder_load(self,folder_path):
+		paths=glob.glob(folder_path+'*.npy')
+		files=[]
+		for path in paths:
+			files.append(np.load(path))
+		return np.asarray(files),paths
 	def subset_create(self, path,patch_step):
 		image = self.image_load(path)
 		image['label_rgb']=image['label'].copy()
@@ -198,11 +244,20 @@ class Dataset(NetObject):
 		correct_all=y_pred.argmax(axis=1)[y_pred.argmax(axis=1)==y_true.argmax(axis=1)]
 		for clss in range(0,self.class_n):
 			correct_per_class[clss]=correct_all[correct_all==clss].shape[0]
-		if self.debug>=3:
+		if self.debug>=1:
 			deb.prints(correct_per_class)
 
-		_,per_class_count=np.unique(y_true.argmax(axis=1),return_counts=True)
-		per_class_acc=np.divide(correct_per_class.astype('float32'),per_class_count.astype('float32'))
+		pred_unique,pred_class_count=np.unique(y_pred.argmax(axis=1),return_counts=True)
+		deb.prints(pred_class_count)
+		deb.prints(pred_unique)
+
+
+		unique,per_class_count=np.unique(y_true.argmax(axis=1),return_counts=True)
+		deb.prints(per_class_count)
+		per_class_count_all=np.zeros(self.class_n)
+		for clss,count in zip(unique,per_class_count):
+			per_class_count_all[clss]=count
+		per_class_acc=np.divide(correct_per_class[1:].astype('float32'),per_class_count_all[1:].astype('float32'))
 		average_acc=np.average(per_class_acc)
 		return average_acc,per_class_acc
 	def flattened_to_im(self,data_h,im_shape):
@@ -223,7 +278,7 @@ class Dataset(NetObject):
 		data['prediction_h']=self.probabilities_to_one_hot(data['prediction_h'])
 				
 		data['label_h'] = self.ims_flatten(data['label']) #(self.batch['test']['size']*self.patch_len*self.patch_len,self.class_n
-		
+
 		if self.debug>=3: 
 			deb.prints(data['prediction_h'].dtype)
 			deb.prints(data['label_h'].dtype)
@@ -367,15 +422,19 @@ class NetModel(NetObject):
 		return pipe
 
 	def build(self):
-		in_im = Input(shape=(self.patch_len, self.patch_len, self.channel_n))
+		in_im = Input(shape=(self.t_len,self.patch_len, self.patch_len, self.channel_n))
 		filters = 64
 
+		#x = keras.layers.Permute((1,2,0,3))(in_im)
+		x = keras.layers.Permute((2,3,1,4))(in_im)
+		
+		x = Reshape((self.patch_len, self.patch_len,self.t_len*self.channel_n), name='predictions')(x)
 		#pipe = {'fwd': [], 'bckwd': []}
 		c = {'init_up': 0, 'up': 0}
 		pipe=[]
 
 		# ================== Transition Down ============================ #
-		pipe.append(self.transition_down(in_im, filters))  # 0 16x16
+		pipe.append(self.transition_down(x, filters))  # 0 16x16
 		pipe.append(self.transition_down(pipe[-1], filters*2))  # 1 8x8
 		pipe.append(self.transition_down(pipe[-1], filters*4))  # 2 4x4
 		pipe.append(self.transition_down(pipe[-1], filters*8))  # 2 4x4
@@ -428,7 +487,7 @@ class NetModel(NetObject):
 			self.early_stop['count']=0
 			print("Best metric updated")
 			data.metrics_write_to_txt(metrics,epoch)
-			data.im_reconstruct(subset='test',mode='prediction')
+			#data.im_reconstruct(subset='test',mode='prediction')
 		else:
 			self.early_stop['count']+=1
 			if self.early_stop["count"]>=self.early_stop["patience"]:
@@ -452,7 +511,7 @@ class NetModel(NetObject):
 		deb.prints(data.patches['test']['label'].shape)
 		deb.prints(self.batch['test']['n'])
 		
-		data.im_reconstruct(subset='test',mode='label')
+		#data.im_reconstruct(subset='test',mode='label')
 		#for epoch in [0,1]:
 		for epoch in range(self.epochs):
 
@@ -513,21 +572,26 @@ class NetModel(NetObject):
 			
 
 
-flag = {"data_create": True, "label_one_hot": True}
+flag = {"data_create": 2, "label_one_hot": True}
 if __name__ == '__main__':
 	#
 	data = Dataset(patch_len=args.patch_len, patch_step_train=args.patch_step_train,
-		patch_step_test=args.patch_step_test,exp_id=args.exp_id)
-	if flag['data_create']:
+		patch_step_test=args.patch_step_test,exp_id=args.exp_id,
+		path=args.path, t_len=args.t_len, class_n=args.class_n)
+	if flag['data_create']==1:
 		data.create()
-
+	elif flag['data_create']==2:
+		data.create_load()
 	adam = Adam(lr=0.0001, beta_1=0.9)
 	model = NetModel(epochs=args.epochs, patch_len=args.patch_len,
 					 patch_step_train=args.patch_step_train, eval_mode=args.eval_mode,
 					 batch_size_train=args.batch_size_train,batch_size_test=args.batch_size_test,
 					 patience=args.patience)
 	model.build()
-	model.loss_weights=np.array([0.21159622, 0.13360889, 0.17312638, 0.29637921, 0.1852893])
+	#model.loss_weights=np.array([0.10259888, 0.2107262 , 0.1949083 , 0.20119307, 0.08057474,
+    #   0.20999881]
+	model.loss_weights=np.array([0,0.04274219, 0.12199843, 0.11601452, 0.12202774, 0.12183601,                                      
+       0.1099085 , 0.11723573, 0.00854844, 0.12208636, 0.11760209]).astype(np.float64)
 	metrics=['accuracy']
 	#metrics=['accuracy',fmeasure,categorical_accuracy]
 	model.compile(loss='binary_crossentropy',

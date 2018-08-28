@@ -130,12 +130,13 @@ class Dataset(NetObject):
 
 		#self.patches_list['test']['ims']=glob.glob(self.path['test']['in']+'*.npy')
 		#self.patches_list['test']['label']=glob.glob(self.path['test']['label']+'*.npy')
-
+		self.patches['test']['label'],self.patches_list['test']['label']=self.folder_load(self.path['test']['label'])
+		
 		self.patches['train']['in'],self.patches_list['train']['ims']=self.folder_load(self.path['train']['in'])
 		self.patches['train']['label'],self.patches_list['train']['label']=self.folder_load(self.path['train']['label'])
 		self.patches['test']['in'],self.patches_list['test']['ims']=self.folder_load(self.path['test']['in'])
-		self.patches['test']['label'],self.patches_list['test']['label']=self.folder_load(self.path['test']['label'])
 		
+		print("Switching to one hot")
 		self.patches['train']['label']=self.batch_label_to_one_hot(self.patches['train']['label'])
 		self.patches['test']['label']=self.batch_label_to_one_hot(self.patches['test']['label'])
 
@@ -157,7 +158,9 @@ class Dataset(NetObject):
 	def folder_load(self,folder_path):
 		paths=glob.glob(folder_path+'*.npy')
 		files=[]
+		deb.prints(len(paths))
 		for path in paths:
+			#print(path)
 			files.append(np.load(path))
 		return np.asarray(files),paths
 	def subset_create(self, path,patch_step):
@@ -374,7 +377,7 @@ class Dataset(NetObject):
 # ========== NetModel object implements model graph definition, train/testing, early stopping ================ #
 
 class NetModel(NetObject):
-	def __init__(self, batch_size_train=32, batch_size_test=200, epochs=30, patience=30, eval_mode='metrics', *args, **kwargs):
+	def __init__(self, batch_size_train=32, batch_size_test=200, epochs=30000, patience=30, eval_mode='metrics', *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		if self.debug >= 1:
 			print("Initializing Model instance")
@@ -459,9 +462,54 @@ class NetModel(NetObject):
 		self.graph = Model(in_im, out)
 		print(self.graph.summary())
 
+	def build(self):
+		in_im = Input(shape=(self.t_len,self.patch_len, self.patch_len, self.channel_n))
+		filters = 64
+
+		#x = keras.layers.Permute((1,2,0,3))(in_im)
+		x = keras.layers.Permute((2,3,1,4))(in_im)
+		
+		x = Reshape((self.patch_len, self.patch_len,self.t_len*self.channel_n), name='predictions')(x)
+		#pipe = {'fwd': [], 'bckwd': []}
+		
+
+		x = Conv2D(48, (3, 3), activation='relu',
+					 padding='same')(x)
+
+
+
+		c = {'init_up': 0, 'up': 0}
+		pipe=[]
+
+		# ================== Transition Down ============================ #
+		pipe.append(self.transition_down(x, filters))  # 0 16x16
+		pipe.append(self.transition_down(pipe[-1], filters*2))  # 1 8x8
+		#pipe.append(self.transition_down(pipe[-1], filters*4))  # 2 4x4
+		c['down']=len(pipe)-1 # Last down-layer idx
+		
+		# =============== Dense block; no transition ================ #
+		#pipe.append(self.dense_block(pipe[-1], filters*16))  # 3 4x4
+
+		# =================== Transition Up ============================= #
+		c['up']=c['down'] # First up-layer idx 
+		#pipe.append(self.concatenate_transition_up(pipe[-1], pipe[c['up']], filters*4))  # 4 8x8
+		#c['up']-=1
+		pipe.append(self.concatenate_transition_up(pipe[-1], pipe[c['up']], filters*2))  # 5
+		c['up']-=1
+		pipe.append(self.concatenate_transition_up(pipe[-1], pipe[c['up']], filters))  # 6
+
+		out = Conv2D(self.class_n, (1, 1), activation='softmax',
+					 padding='same')(pipe[-1])
+
+		self.graph = Model(in_im, out)
+		print(self.graph.summary())
+
+
 	def compile(self, optimizer, loss='binary_crossentropy', metrics=['accuracy',metrics.categorical_accuracy],loss_weights=None):
 		loss_weighted=weighted_categorical_crossentropy(loss_weights)
-		self.graph.compile(loss=loss_weighted, optimizer=optimizer, metrics=metrics)
+		#self.graph.compile(loss=loss_weighted, optimizer=optimizer, metrics=metrics)
+		self.graph.compile(loss=loss, optimizer=optimizer, metrics=metrics)
+
 
 	def train(self, data):
 
@@ -561,8 +609,8 @@ class NetModel(NetObject):
 			self.early_stop_check(metrics,epoch)
 
 			#self.test_metrics_evaluate(data.patches['test'],metrics,epoch)
-			if self.early_stop['signal']==True:
-				break
+			#if self.early_stop['signal']==True:
+			#	break
 			print('oa={}, aa={}, f1={}'.format(metrics['overall_acc'],metrics['average_acc'],metrics['f1_score']))
 		
 			# Average epoch loss
@@ -592,6 +640,8 @@ if __name__ == '__main__':
     #   0.20999881]
 	model.loss_weights=np.array([0,0.04274219, 0.12199843, 0.11601452, 0.12202774, 0.12183601,                                      
        0.1099085 , 0.11723573, 0.00854844, 0.12208636, 0.11760209]).astype(np.float64)
+	#model.loss_weights=np.array([0,1,1,1,1,1,1,1,1,1,1]).astype(np.float64)/10
+	
 	metrics=['accuracy']
 	#metrics=['accuracy',fmeasure,categorical_accuracy]
 	model.compile(loss='binary_crossentropy',

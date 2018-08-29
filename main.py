@@ -23,7 +23,7 @@ import glob
 
 from sklearn.metrics import confusion_matrix,f1_score,accuracy_score,classification_report
 # Local
-
+from densnet import DenseNetFCN
 from metrics import fmeasure,categorical_accuracy
 import deb
 from keras_weighted_categorical_crossentropy import weighted_categorical_crossentropy, sparse_accuracy_ignoring_last_label
@@ -458,7 +458,6 @@ class NetModel(NetObject):
 
 		out = Conv2D(self.class_n, (1, 1), activation='softmax',
 					 padding='same')(pipe[-1])
-
 		self.graph = Model(in_im, out)
 		print(self.graph.summary())
 
@@ -504,12 +503,24 @@ class NetModel(NetObject):
 		self.graph = Model(in_im, out)
 		print(self.graph.summary())
 
+	def build(self):
+		in_im = Input(shape=(self.t_len,self.patch_len, self.patch_len, self.channel_n))
 
+		#x = keras.layers.Permute((1,2,0,3))(in_im)
+		x = keras.layers.Permute((2,3,1,4))(in_im)
+		
+		x = Reshape((self.patch_len, self.patch_len,self.t_len*self.channel_n), name='predictions')(x)
+		out = DenseNetFCN((32, 32, 14), nb_dense_block=2, growth_rate=16, dropout_rate=0.2,
+                        nb_layers_per_block=2, upsampling_type='deconv', classes=11, 
+                        activation='softmax', batchsize=32,input_tensor=x)
+		self.graph = Model(in_im, out)
+		print(self.graph.summary())
 	def compile(self, optimizer, loss='binary_crossentropy', metrics=['accuracy',metrics.categorical_accuracy],loss_weights=None):
 		loss_weighted=weighted_categorical_crossentropy(loss_weights)
 		#sparse_accuracy_ignoring_last_label()
-		#self.graph.compile(loss=loss_weighted, optimizer=optimizer, metrics=metrics)
-		self.graph.compile(loss=sparse_accuracy_ignoring_last_label, optimizer=optimizer, metrics=metrics)
+		self.graph.compile(loss=loss_weighted, optimizer=optimizer, metrics=metrics)
+		#self.graph.compile(loss=sparse_accuracy_ignoring_last_label, optimizer=optimizer, metrics=metrics)
+		#self.graph.compile(loss='categorical_crossentropy', optimizer=optimizer, metrics=metrics)
 
 
 	def train(self, data):
@@ -639,8 +650,8 @@ if __name__ == '__main__':
 	model.build()
 	#model.loss_weights=np.array([0.10259888, 0.2107262 , 0.1949083 , 0.20119307, 0.08057474,
     #   0.20999881]
-	model.loss_weights=np.array([0,0.04274219, 0.12199843, 0.11601452, 0.12202774, 0.12183601,                                      
-       0.1099085 , 0.11723573, 0.00854844, 0.12208636, 0.11760209]).astype(np.float64)
+	model.loss_weights=np.multiply(np.array([0,0.04274219, 0.12199843, 0.11601452, 0.12202774, 0.12183601,                                      
+       0.1099085 , 0.11723573, 0.00854844, 0.12208636, 0.11760209]),10).astype(np.float64)
 	#model.loss_weights=np.array([0,1,1,1,1,1,1,1,1,1,1]).astype(np.float64)/10
 	
 	metrics=['accuracy']

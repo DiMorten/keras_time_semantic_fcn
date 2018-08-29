@@ -34,6 +34,8 @@ def weighted_categorical_crossentropy(weights):
 # 
 
 def sparse_accuracy_ignoring_last_label(y_true, y_pred):
+    #y_pred = K.argmax(y_pred,axis=3)
+        
     nb_classes = K.int_shape(y_pred)[-1]
     y_pred = K.reshape(y_pred, (-1, nb_classes))
 

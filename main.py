@@ -26,7 +26,7 @@ from sklearn.metrics import confusion_matrix,f1_score,accuracy_score,classificat
 
 from metrics import fmeasure,categorical_accuracy
 import deb
-from keras_weighted_categorical_crossentropy import weighted_categorical_crossentropy
+from keras_weighted_categorical_crossentropy import weighted_categorical_crossentropy, sparse_accuracy_ignoring_last_label
 
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('-tl', '--t_len', dest='t_len',
@@ -507,8 +507,9 @@ class NetModel(NetObject):
 
 	def compile(self, optimizer, loss='binary_crossentropy', metrics=['accuracy',metrics.categorical_accuracy],loss_weights=None):
 		loss_weighted=weighted_categorical_crossentropy(loss_weights)
+		#sparse_accuracy_ignoring_last_label()
 		#self.graph.compile(loss=loss_weighted, optimizer=optimizer, metrics=metrics)
-		self.graph.compile(loss=loss, optimizer=optimizer, metrics=metrics)
+		self.graph.compile(loss=sparse_accuracy_ignoring_last_label, optimizer=optimizer, metrics=metrics)
 
 
 	def train(self, data):

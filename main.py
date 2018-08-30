@@ -135,6 +135,9 @@ class Dataset(NetObject):
 		self.patches['train']['in'],self.patches_list['train']['ims']=self.folder_load(self.path['train']['in'])
 		self.patches['train']['label'],self.patches_list['train']['label']=self.folder_load(self.path['train']['label'])
 		self.patches['test']['in'],self.patches_list['test']['ims']=self.folder_load(self.path['test']['in'])
+		deb.prints(self.patches['train']['in'].shape)
+		deb.prints(self.patches['test']['in'].shape)
+		deb.prints(self.patches['train']['label'].shape)
 		
 		print("Switching to one hot")
 		self.patches['train']['label']=self.batch_label_to_one_hot(self.patches['train']['label'])
@@ -274,15 +277,20 @@ class Dataset(NetObject):
 		return np.equal(val1,val2)
 
 
-	def metrics_get(self,data): #requires batch['prediction'],batch['label']
+	def metrics_get(self,data,ignore_bcknd=True): #requires batch['prediction'],batch['label']
 		
 
+		# ==========================IMGS FLATTEN ==========================================#
 		data['prediction_h'] = self.ims_flatten(data['prediction'])
 		data['prediction_h']=self.probabilities_to_one_hot(data['prediction_h'])
 				
 		data['label_h'] = self.ims_flatten(data['label']) #(self.batch['test']['size']*self.patch_len*self.patch_len,self.class_n
 
-		if self.debug>=3: 
+
+		if ignore_bcknd==True:
+			data['prediction_h']=data['prediction_h'][:,1:]
+			data['label_h']=data['label_h'][:,1:]
+		if self.debug>=1: 
 			deb.prints(data['prediction_h'].dtype)
 			deb.prints(data['label_h'].dtype)
 			deb.prints(data['prediction_h'].shape)
@@ -290,22 +298,24 @@ class Dataset(NetObject):
 			deb.prints(data['label_h'][0])
 			deb.prints(data['prediction_h'][0])
 
+		#========================METRICS GET================================================#
 		metrics={}
 		metrics['f1_score']=f1_score(data['prediction_h'],data['label_h'],average='macro')
 		metrics['overall_acc']=accuracy_score(data['prediction_h'],data['label_h'])
-		
-		
 		metrics['confusion_matrix']=confusion_matrix(data['prediction_h'].argmax(axis=1),data['label_h'].argmax(axis=1))
 		
 		metrics['average_acc'],metrics['per_class_acc']=self.average_acc(data['prediction_h'],data['label_h'])
 		deb.prints(metrics['per_class_acc'])
-		data_label_reconstructed=self.flattened_to_im(data['label_h'],data['label'].shape)
-		data_prediction_reconstructed=self.flattened_to_im(data['prediction_h'],data['label'].shape)
 		
-		deb.prints(data_label_reconstructed.shape)
-		np.testing.assert_almost_equal(data['label'],data_label_reconstructed)
-		print("Is label reconstructed equal to original",np.array_equal(data['label'],data_label_reconstructed))
-		print("Is prediction reconstructed equal to original",np.array_equal(data['prediction'].argmax(axis=3),data_prediction_reconstructed.argmax(axis=3)))
+		#=====================IMG RECONSTRUCT============================================#
+		if ignore_bcknd!=True:
+			data_label_reconstructed=self.flattened_to_im(data['label_h'],data['label'].shape)
+			data_prediction_reconstructed=self.flattened_to_im(data['prediction_h'],data['label'].shape)
+		
+			deb.prints(data_label_reconstructed.shape)
+			np.testing.assert_almost_equal(data['label'],data_label_reconstructed)
+			print("Is label reconstructed equal to original",np.array_equal(data['label'],data_label_reconstructed))
+			print("Is prediction reconstructed equal to original",np.array_equal(data['prediction'].argmax(axis=3),data_prediction_reconstructed.argmax(axis=3)))
 
 		if self.debug>=2: print(metrics['per_class_acc'])
 
@@ -511,7 +521,7 @@ class NetModel(NetObject):
 		
 		x = Reshape((self.patch_len, self.patch_len,self.t_len*self.channel_n), name='predictions')(x)
 		out = DenseNetFCN((32, 32, 14), nb_dense_block=2, growth_rate=16, dropout_rate=0.2,
-                        nb_layers_per_block=2, upsampling_type='deconv', classes=11, 
+                        nb_layers_per_block=2, upsampling_type='deconv', classes=12, 
                         activation='softmax', batchsize=32,input_tensor=x)
 		self.graph = Model(in_im, out)
 		print(self.graph.summary())
@@ -526,11 +536,11 @@ class NetModel(NetObject):
 	def train(self, data):
 
 		# Random shuffle
-		data.patches['train']['in'], data.patches['train']['label'] = shuffle(data.patches['train']['in'], data.patches['train']['label'], random_state=0)
+		##data.patches['train']['in'], data.patches['train']['label'] = shuffle(data.patches['train']['in'], data.patches['train']['label'], random_state=0)
 
 		# Normalize
-		data.patches['train']['in'] = normalize(data.patches['train']['in'].astype('float32'))
-		data.patches['test']['in'] = normalize(data.patches['test']['in'].astype('float32'))
+		##data.patches['train']['in'] = normalize(data.patches['train']['in'].astype('float32'))
+		##data.patches['test']['in'] = normalize(data.patches['test']['in'].astype('float32'))
 
 		# Computing the number of batches
 		data.patches['train']['batch_n'] = data.patches['train']['in'].shape[0]//self.batch['train']['size']
@@ -561,6 +571,7 @@ class NetModel(NetObject):
 		cback_tboard = keras.callbacks.TensorBoard(
 			log_dir='../summaries/', histogram_freq=0, batch_size=self.batch['train']['size'], write_graph=True, write_grads=False, write_images=False)
 
+		#==================== ESTIMATE BATCH NUMBER===============================#
 		batch = {'train': {}, 'test': {}}
 		self.batch['train']['n'] = data.patches['train']['in'].shape[0] // self.batch['train']['size']
 		self.batch['test']['n'] = data.patches['test']['in'].shape[0] // self.batch['test']['size']
@@ -573,14 +584,16 @@ class NetModel(NetObject):
 		
 		#data.im_reconstruct(subset='test',mode='label')
 		#for epoch in [0,1]:
+		#==============================START TRAIN/TEST LOOP============================#
 		for epoch in range(self.epochs):
 
 			self.metrics['train']['loss'] = np.zeros((1, 2))
 			self.metrics['test']['loss'] = np.zeros((1, 2))
 
 			# Random shuffle the data
-			data.patches['train']['in'], data.patches['train']['label'] = shuffle(data.patches['train']['in'], data.patches['train']['label'])
+			##data.patches['train']['in'], data.patches['train']['label'] = shuffle(data.patches['train']['in'], data.patches['train']['label'])
 
+			#=============================TRAIN LOOP=========================================#
 			for batch_id in range(0, self.batch['train']['n']):
 				
 				idx0 = batch_id*self.batch['train']['size']
@@ -597,6 +610,7 @@ class NetModel(NetObject):
 
 			data.patches['test']['prediction']=np.zeros_like(data.patches['test']['label'])
 			self.batch_test_stats=True
+			#==========================TEST LOOP================================================#
 			for batch_id in range(0, self.batch['test']['n']):
 				idx0 = batch_id*self.batch['test']['size']
 				idx1 = (batch_id+1)*self.batch['test']['size']
@@ -610,6 +624,7 @@ class NetModel(NetObject):
 
 				data.patches['test']['prediction'][idx0:idx1]=self.graph.predict(batch['test']['in'],batch_size=self.batch['test']['size'])
 
+			#====================METRICS GET================================================#
 			deb.prints(data.patches['test']['label'].shape)		
 			deb.prints(idx1)
 			print("Epoch={}".format(epoch))	
@@ -629,7 +644,7 @@ class NetModel(NetObject):
 			self.metrics['test']['loss'] /= self.batch['test']['n']
 			print("Train loss={}, Test loss={}".format(self.metrics['train']['loss'],self.metrics['test']['loss']))
 
-			
+			#====================END METRICS GET===========================================#
 
 
 flag = {"data_create": 2, "label_one_hot": True}
@@ -642,6 +657,11 @@ if __name__ == '__main__':
 		data.create()
 	elif flag['data_create']==2:
 		data.create_load()
+
+	unique,count=np.unique(data.patches['test']['label'].argmax(axis=3),return_counts=True)
+	deb.prints(unique)
+	deb.prints(count)
+	data.label_unique=unique.copy()
 	adam = Adam(lr=0.0001, beta_1=0.9)
 	model = NetModel(epochs=args.epochs, patch_len=args.patch_len,
 					 patch_step_train=args.patch_step_train, eval_mode=args.eval_mode,
@@ -650,9 +670,12 @@ if __name__ == '__main__':
 	model.build()
 	#model.loss_weights=np.array([0.10259888, 0.2107262 , 0.1949083 , 0.20119307, 0.08057474,
     #   0.20999881]
-	model.loss_weights=np.multiply(np.array([0,0.04274219, 0.12199843, 0.11601452, 0.12202774, 0.12183601,                                      
-       0.1099085 , 0.11723573, 0.00854844, 0.12208636, 0.11760209]),10).astype(np.float64)
-	#model.loss_weights=np.array([0,1,1,1,1,1,1,1,1,1,1]).astype(np.float64)/10
+	#model.loss_weights=np.array([0,0.04274219, 0.12199843, 0.11601452, 0.12202774, 0.12183601,                                      
+    #   0.1099085 , 0.11723573, 0.00854844, 0.12208636, 0.11760209]).astype(np.float64)
+	#model.loss_weights=np.array([0,1,1,1,1,1,1,1,1,1,1,1]).astype(np.float64)/11
+	model.loss_weights=np.array([0.        , 0.06051054, 0.13370499, 0.13283712, 0.13405423,
+       0.        , 0.13397788, 0.11706449, 0.12805041, 0.03190986,
+       0.        , 0.12789048]).astype(np.float64)
 	
 	metrics=['accuracy']
 	#metrics=['accuracy',fmeasure,categorical_accuracy]

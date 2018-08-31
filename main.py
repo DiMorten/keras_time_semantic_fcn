@@ -348,6 +348,9 @@ class Dataset(NetObject):
 	def metrics_write_to_txt(self,metrics,epoch=0):
 		with open(self.report['best']['text_path'], "w") as text_file:
 		    text_file.write("Overall_acc,average_acc,f1_score: {0},{1},{2},{3}".format(str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(epoch)))
+		with open(self.report['best']['text_history_path'], "a") as text_file:
+			text_file.write("{0},{1},{2},{3},{4}".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['per_class_acc'])))
+
 		
 	def metrics_per_class_from_im_get(self,name='im_reconstructed_rgb_test_predictionplen64_3.png',folder='../results/reconstructed/',average=None):
 		data={}
@@ -426,6 +429,8 @@ class NetModel(NetObject):
 					'signal':False,
 					'patience':patience}
 
+		with open(self.report['best']['text_history_path'], "w") as text_file:
+			text_file.write("epoch,oa,aa,f1,class_acc")
 	def transition_down(self, pipe, filters):
 		pipe = Conv2D(filters, (3, 3), strides=(2, 2), padding='same')(pipe)
 		pipe = keras.layers.BatchNormalization(axis=3)(pipe)

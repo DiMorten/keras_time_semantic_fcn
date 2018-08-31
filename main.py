@@ -697,10 +697,11 @@ if __name__ == '__main__':
 	#model.loss_weights=np.array([0,0.04274219, 0.12199843, 0.11601452, 0.12202774, 0.12183601,                                      
     #   0.1099085 , 0.11723573, 0.00854844, 0.12208636, 0.11760209]).astype(np.float64)
 	#model.loss_weights=np.array([0,1,1,1,1,1,1,1,1,1,1,1]).astype(np.float64)/11
-	model.loss_weights=np.array([0.        , 0.06051054, 0.13370499, 0.13283712, 0.13405423,
-       0.        , 0.13397788, 0.11706449, 0.12805041, 0.03190986,
-       0.        , 0.12789048]).astype(np.float64)
-	
+	#model.loss_weights=np.array([0.        , 0.06051054, 0.13370499, 0.13283712, 0.13405423,
+    #   0.        , 0.13397788, 0.11706449, 0.12805041, 0.03190986,
+    #   0.        , 0.12789048]).astype(np.float64)
+	model.loss_weights=np.array([0,1.39506639e+00, 2.60304567e+02, 1.03202335e+02, 1.93963056e+04,0,0,
+       6.00161586e+00, 1.66971628e+01, 1.00000000e+00, 0,1.70606546e+01]).astype(np.float64)
 	metrics=['accuracy']
 	#metrics=['accuracy',fmeasure,categorical_accuracy]
 	model.compile(loss='binary_crossentropy',

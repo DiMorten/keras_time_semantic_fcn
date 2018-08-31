@@ -316,13 +316,17 @@ class Dataset(NetObject):
 		#============= TEST UNIQUE PRINTING==================#
 		unique,count=np.unique(data['label_h'].argmax(axis=1),return_counts=True)
 		print("Test unique+1,count",unique+1,count)
+		unique,count=np.unique(data['prediction_h'].argmax(axis=1),return_counts=True)
+		print("Prediction unique+1,count",unique+1,count)
+		
 		#========================METRICS GET================================================#
 		metrics={}
 		metrics['f1_score']=f1_score(data['prediction_h'],data['label_h'],average='macro')
 		metrics['overall_acc']=accuracy_score(data['prediction_h'],data['label_h'])
-		metrics['confusion_matrix']=confusion_matrix(data['prediction_h'].argmax(axis=1),data['label_h'].argmax(axis=1))
+		metrics['confusion_matrix']=confusion_matrix(data['label_h'].argmax(axis=1),data['prediction_h'].argmax(axis=1))
 		metrics['per_class_acc']=(metrics['confusion_matrix'].astype('float') / metrics['confusion_matrix'].sum(axis=1)[:, np.newaxis]).diagonal()
-		metrics['average_acc']=np.average(metrics['per_class_acc'])
+		
+		metrics['average_acc']=np.average(metrics['per_class_acc'][~np.isnan(metrics['per_class_acc'])])
 		deb.prints(metrics['confusion_matrix'])
 		#metrics['average_acc'],metrics['per_class_acc']=self.average_acc(data['prediction_h'],data['label_h'])
 		deb.prints(metrics['per_class_acc'])

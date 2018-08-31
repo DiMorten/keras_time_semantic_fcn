@@ -46,9 +46,9 @@ parser.add_argument('-psts', '--patch_step_test', dest='patch_step_test',
 parser.add_argument('-db', '--debug', dest='debug',
 					type=int, default=1, help='patch len')
 parser.add_argument('-ep', '--epochs', dest='epochs',
-					type=int, default=30, help='patch len')
+					type=int, default=2000, help='patch len')
 parser.add_argument('-pt', '--patience', dest='patience',
-					type=int, default=30, help='patience')
+					type=int, default=50, help='patience')
 
 parser.add_argument('-bstr', '--batch_size_train', dest='batch_size_train',
 					type=int, default=32, help='patch len')
@@ -255,11 +255,12 @@ class Dataset(NetObject):
 
 		pred_unique,pred_class_count=np.unique(y_pred.argmax(axis=1),return_counts=True)
 		deb.prints(pred_class_count)
-		deb.prints(pred_unique)
+		deb.prints(pred_unique+1)
 
 
 		unique,per_class_count=np.unique(y_true.argmax(axis=1),return_counts=True)
 		deb.prints(per_class_count)
+		deb.prints(unique+1)
 		per_class_count_all=np.zeros(self.class_n)
 		for clss,count in zip(unique,per_class_count):
 			per_class_count_all[clss]=count
@@ -303,7 +304,7 @@ class Dataset(NetObject):
 		metrics['f1_score']=f1_score(data['prediction_h'],data['label_h'],average='macro')
 		metrics['overall_acc']=accuracy_score(data['prediction_h'],data['label_h'])
 		metrics['confusion_matrix']=confusion_matrix(data['prediction_h'].argmax(axis=1),data['label_h'].argmax(axis=1))
-		
+		deb.prints(metrics['confusion_matrix'])
 		metrics['average_acc'],metrics['per_class_acc']=self.average_acc(data['prediction_h'],data['label_h'])
 		deb.prints(metrics['per_class_acc'])
 		

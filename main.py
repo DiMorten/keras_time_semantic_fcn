@@ -95,6 +95,8 @@ class NetObject(object):
 		self.report['exp_id']=exp_id
 		self.report['best']['text_name']='result_'+exp_id+'.txt'
 		self.report['best']['text_path']='../results/'+self.report['best']['text_name']
+		self.report['best']['text_history_path']='../results/'+'history.txt'
+		
 		self.t_len=t_len
 # ================= Dataset class implements data loading, patch extraction, metric calculation and image reconstruction =======#
 class Dataset(NetObject):
@@ -707,6 +709,10 @@ if __name__ == '__main__':
     #   0.        , 0.12789048]).astype(np.float64)
 	model.loss_weights=np.array([0,1.39506639e+00, 2.60304567e+02, 1.03202335e+02, 1.93963056e+04,0,0,
        6.00161586e+00, 1.66971628e+01, 1.00000000e+00, 0,1.70606546e+01]).astype(np.float64)
+	
+	model.loss_weights=np.array([0,1.41430758e+00, 2.70356529e+02, 9.87119740e+01, 2.17569417e+05,0,
+ 2.43094320e+03, 5.97588208e+00, 1.65553794e+01, 1.00000000e+00,0,
+ 1.69903102e+01])
 	metrics=['accuracy']
 	#metrics=['accuracy',fmeasure,categorical_accuracy]
 	model.compile(loss='binary_crossentropy',

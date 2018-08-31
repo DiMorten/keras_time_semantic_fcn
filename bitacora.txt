@@ -202,3 +202,15 @@ oa=0.7896309575577743, aa=0.6790734578041588, f1=0.42360449617002804
 Train loss=[[0.54774089 0.53163621]], Test loss=[[2.55001748 0.35888171]]
 Deb prints error. Value: (6051, 32, 32, 12)
 Deb prints error. Value: 6048
+
+
+With overlap 12
+
+Test distr.:
+
+[ 1  2  3  4  6  7  8  9 11] [1846015    9657   26449      12    1074  436895  157703 2610833  153666]
+
+import numpy as np
+count=np.array([1846015 ,   9657,   26449  ,    12   , 1074 , 436895 , 157703, 2610833 , 153666])
+w=np.max(count)/count
+print(w)

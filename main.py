@@ -48,7 +48,7 @@ parser.add_argument('-db', '--debug', dest='debug',
 parser.add_argument('-ep', '--epochs', dest='epochs',
 					type=int, default=2000, help='patch len')
 parser.add_argument('-pt', '--patience', dest='patience',
-					type=int, default=50, help='patience')
+					type=int, default=20, help='patience')
 
 parser.add_argument('-bstr', '--batch_size_train', dest='batch_size_train',
 					type=int, default=32, help='patch len')
@@ -316,10 +316,16 @@ class Dataset(NetObject):
 			deb.prints(data['prediction_h'][0])
 
 		#============= TEST UNIQUE PRINTING==================#
+
 		unique,count=np.unique(data['label_h'].argmax(axis=1),return_counts=True)
 		print("Test unique+1,count",unique+1,count)
+		deb.prints(np.sum(count))
+		
 		unique,count=np.unique(data['prediction_h'].argmax(axis=1),return_counts=True)
 		print("Prediction unique+1,count",unique+1,count)
+		deb.prints(np.sum(count))
+		
+		deb.prints(np.sum(data['prediction_h']))
 		
 		#========================METRICS GET================================================#
 		metrics={}
@@ -348,8 +354,8 @@ class Dataset(NetObject):
 		return metrics
 
 	def metrics_write_to_txt(self,metrics,epoch=0):
-		with open(self.report['best']['text_path'], "w") as text_file:
-		    text_file.write("Overall_acc,average_acc,f1_score: {0},{1},{2},{3}".format(str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(epoch)))
+		#with open(self.report['best']['text_path'], "w") as text_file:
+		#    text_file.write("Overall_acc,average_acc,f1_score: {0},{1},{2},{3}".format(str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(epoch)))
 		with open(self.report['best']['text_history_path'], "a") as text_file:
 			text_file.write("{0},{1},{2},{3},{4}".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['per_class_acc'])))
 
@@ -551,8 +557,8 @@ class NetModel(NetObject):
 		x = keras.layers.Permute((2,3,1,4))(in_im)
 		
 		x = Reshape((self.patch_len, self.patch_len,self.t_len*self.channel_n), name='predictions')(x)
-		out = DenseNetFCN((32, 32, 14), nb_dense_block=2, growth_rate=16, dropout_rate=0.2,
-                        nb_layers_per_block=2, upsampling_type='deconv', classes=12, 
+		out = DenseNetFCN((32, 32, self.t_len*self.channel_n), nb_dense_block=2, growth_rate=16, dropout_rate=0.2,
+                        nb_layers_per_block=2, upsampling_type='deconv', classes=self.class_n, 
                         activation='softmax', batchsize=32,input_tensor=x)
 		self.graph = Model(in_im, out)
 		print(self.graph.summary())
@@ -662,7 +668,8 @@ class NetModel(NetObject):
 			
 			# Get test metrics
 			metrics=data.metrics_get(data.patches['test'])
-			
+			if epoch % 1 == 0:
+				data.metrics_write_to_txt(metrics,epoch)
 			# Check early stop and store results if they are the best
 			self.early_stop_check(metrics,epoch)
 
@@ -697,7 +704,7 @@ if __name__ == '__main__':
 	model = NetModel(epochs=args.epochs, patch_len=args.patch_len,
 					 patch_step_train=args.patch_step_train, eval_mode=args.eval_mode,
 					 batch_size_train=args.batch_size_train,batch_size_test=args.batch_size_test,
-					 patience=args.patience)
+					 patience=args.patience, t_len=args.t_len, class_n=args.class_n)
 	model.build()
 	#model.loss_weights=np.array([0.10259888, 0.2107262 , 0.1949083 , 0.20119307, 0.08057474,
     #   0.20999881]
@@ -715,11 +722,18 @@ if __name__ == '__main__':
  #1.69903102e+01])
 
 	#model.loss_weights=np.array([0,1.37713256e+00,2.45637517e+02,6.08387646e+01,2.01024432e+03,0,3.79562360e+02, 6.26613648e+00, 1.70359689e+01, 1.00000000e+00,3.90646218e+03 ,1.59325845e+01])
-	#model.loss_weights=np.array([0,1.37852055e+00, 2.45986531e+02, 6.10172192e+01, 1.97027386e+03,0,3.71352450e+02 ,6.26956560e+00, 1.70878077e+01 ,1.00000000e+00,4.62502597e+03, 1.59184248e+01])
-	model.loss_weights=np.ones(12)
-	model.loss_weights[0]=0
-	model.loss_weights/=11
+	# ==== LOSS WEIGHTS FOR SEQ1 CV
+	##model.loss_weights=np.array([0,1.37852055e+00, 2.45986531e+02, 6.10172192e+01, 1.97027386e+03,0,3.71352450e+02 ,6.26956560e+00, 1.70878077e+01 ,1.00000000e+00,4.62502597e+03, 1.59184248e+01])
+	#=========== HANNOVER
+	#model.loss_weights=np.ones(9)
+	#model.loss_weights[0]=0
+	#model.loss_weights/=8
+	
+	##model.loss_weights=np.array([0, 3.91010048,3.77437468,1.,13.89849624,1.43266809 ,27.38518519,1.23110223 , 1.49012495])
 
+	#============CV SEQ2
+
+	model.loss_weights=np.array([0,2.87029782e+02 ,1.15257798e+02,0,0,0 ,5.51515771e+01 ,1.45716824e+01, 3.90684535e+01 ,1.00000000e+00 ,4.01800573e+03 ,4.20670477e+01])
 	metrics=['accuracy']
 	#metrics=['accuracy',fmeasure,categorical_accuracy]
 	model.compile(loss='binary_crossentropy',

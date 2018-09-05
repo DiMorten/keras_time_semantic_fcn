@@ -320,3 +320,5 @@ Train loss=[[0.15270762 0.62631344]], Test loss=[[6.17914214 0.50092353]]
 [@debug] data.patches['test']['label'].shape = (4670, 32, 32, 12)
 [@debug] idx1 = 4640
 Epoch=808
+
+python main.py -pl=32 -pstr=32 -psts=32 -path="../../../deep_learning/LSTM-Final-Project/cv_data/" -tl=7 -cn=12 -chn=2

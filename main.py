@@ -348,10 +348,10 @@ class Dataset(NetObject):
 		return metrics
 
 	def metrics_write_to_txt(self,metrics,epoch=0):
-		with open(self.report['best']['text_path'], "w") as text_file:
-		    text_file.write("Overall_acc,average_acc,f1_score: {0},{1},{2},{3}".format(str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(epoch)))
+		#with open(self.report['best']['text_path'], "w") as text_file:
+		#    text_file.write("Overall_acc,average_acc,f1_score: {0},{1},{2},{3}".format(str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(epoch)))
 		with open(self.report['best']['text_history_path'], "a") as text_file:
-			text_file.write("{0},{1},{2},{3},{4}".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['per_class_acc'])))
+			text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
 
 		
 	def metrics_per_class_from_im_get(self,name='im_reconstructed_rgb_test_predictionplen64_3.png',folder='../results/reconstructed/',average=None):
@@ -587,7 +587,7 @@ class NetModel(NetObject):
 			self.early_stop['best']=metrics[most_important]
 			self.early_stop['count']=0
 			print("Best metric updated")
-			data.metrics_write_to_txt(metrics,epoch)
+			
 			#data.im_reconstruct(subset='test',mode='prediction')
 		else:
 			self.early_stop['count']+=1
@@ -665,7 +665,7 @@ class NetModel(NetObject):
 			
 			# Check early stop and store results if they are the best
 			self.early_stop_check(metrics,epoch)
-
+			data.metrics_write_to_txt(metrics,epoch)
 			#self.test_metrics_evaluate(data.patches['test'],metrics,epoch)
 			#if self.early_stop['signal']==True:
 			#	break
@@ -715,10 +715,16 @@ if __name__ == '__main__':
  #1.69903102e+01])
 
 	#model.loss_weights=np.array([0,1.37713256e+00,2.45637517e+02,6.08387646e+01,2.01024432e+03,0,3.79562360e+02, 6.26613648e+00, 1.70359689e+01, 1.00000000e+00,3.90646218e+03 ,1.59325845e+01])
+	# Estimated with test
 	#model.loss_weights=np.array([0,1.37852055e+00, 2.45986531e+02, 6.10172192e+01, 1.97027386e+03,0,3.71352450e+02 ,6.26956560e+00, 1.70878077e+01 ,1.00000000e+00,4.62502597e+03, 1.59184248e+01])
-	model.loss_weights=np.ones(12)
-	model.loss_weights[0]=0
-	model.loss_weights/=11
+	# Estimated with train
+	# This is an okay fcn
+	#model.loss_weights=np.array([0, 1.42610349e+00  , 7.30082405e+02  , 1.75681165e+01 ,  1.11196404e+03, 0,3.93620317e+02 ,  8.51592741e+00  , 2.28322375e+01 ,  1.00000000e+00,2.34818768e+03  , 2.45846645e+01])
+	model.loss_weights=np.array([0,1,1,1,1,0,1,1,1,1,1,1])
+	#======end cv seq1
+	##model.loss_weights=np.ones(12)
+	##model.loss_weights[0]=0
+	##model.loss_weights/=11
 
 	metrics=['accuracy']
 	#metrics=['accuracy',fmeasure,categorical_accuracy]

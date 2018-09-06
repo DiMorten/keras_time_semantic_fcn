@@ -357,7 +357,7 @@ class Dataset(NetObject):
 		#with open(self.report['best']['text_path'], "w") as text_file:
 		#    text_file.write("Overall_acc,average_acc,f1_score: {0},{1},{2},{3}".format(str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(epoch)))
 		with open(self.report['best']['text_history_path'], "a") as text_file:
-			text_file.write("{0},{1},{2},{3},{4}".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['per_class_acc'])))
+			text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
 
 		
 	def metrics_per_class_from_im_get(self,name='im_reconstructed_rgb_test_predictionplen64_3.png',folder='../results/reconstructed/',average=None):
@@ -438,7 +438,7 @@ class NetModel(NetObject):
 					'patience':patience}
 
 		with open(self.report['best']['text_history_path'], "w") as text_file:
-			text_file.write("epoch,oa,aa,f1,class_acc")
+			text_file.write("epoch,oa,aa,f1,class_acc\n")
 	def transition_down(self, pipe, filters):
 		pipe = Conv2D(filters, (3, 3), strides=(2, 2), padding='same')(pipe)
 		pipe = keras.layers.BatchNormalization(axis=3)(pipe)
@@ -593,7 +593,7 @@ class NetModel(NetObject):
 			self.early_stop['best']=metrics[most_important]
 			self.early_stop['count']=0
 			print("Best metric updated")
-			data.metrics_write_to_txt(metrics,epoch)
+			#data.metrics_write_to_txt(metrics,epoch)
 			#data.im_reconstruct(subset='test',mode='prediction')
 		else:
 			self.early_stop['count']+=1
@@ -723,7 +723,7 @@ if __name__ == '__main__':
 
 	#model.loss_weights=np.array([0,1.37713256e+00,2.45637517e+02,6.08387646e+01,2.01024432e+03,0,3.79562360e+02, 6.26613648e+00, 1.70359689e+01, 1.00000000e+00,3.90646218e+03 ,1.59325845e+01])
 	# ==== LOSS WEIGHTS FOR SEQ1 CV
-	##model.loss_weights=np.array([0,1.37852055e+00, 2.45986531e+02, 6.10172192e+01, 1.97027386e+03,0,3.71352450e+02 ,6.26956560e+00, 1.70878077e+01 ,1.00000000e+00,4.62502597e+03, 1.59184248e+01])
+	model.loss_weights=np.array([0,1.37852055e+00, 2.45986531e+02, 6.10172192e+01, 1.97027386e+03,0,3.71352450e+02 ,6.26956560e+00, 1.70878077e+01 ,1.00000000e+00,4.62502597e+03, 1.59184248e+01])
 	#=========== HANNOVER
 	#model.loss_weights=np.ones(9)
 	#model.loss_weights[0]=0
@@ -733,7 +733,8 @@ if __name__ == '__main__':
 
 	#============CV SEQ2
 
-	model.loss_weights=np.array([0,2.87029782e+02 ,1.15257798e+02,0,0,0 ,5.51515771e+01 ,1.45716824e+01, 3.90684535e+01 ,1.00000000e+00 ,4.01800573e+03 ,4.20670477e+01])
+	##model.loss_weights=np.array([0,2.87029782e+02 ,1.15257798e+02,0,0,0 ,5.51515771e+01 ,1.45716824e+01, 3.90684535e+01 ,1.00000000e+00 ,4.01800573e+03 ,4.20670477e+01])
+	#model.loss_weights=np.array([0,1,1,0,0,0,1,1,1,1,1,1])/8
 	metrics=['accuracy']
 	#metrics=['accuracy',fmeasure,categorical_accuracy]
 	model.compile(loss='binary_crossentropy',

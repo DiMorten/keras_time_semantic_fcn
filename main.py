@@ -153,6 +153,9 @@ class Dataset(NetObject):
 		
 		deb.prints(self.patches['train']['label'].shape)
 		
+		self.patches['train']['n']=self.patches['train']['in'].shape[0]
+		self.patches['train']['idx']=range(self.patches['train']['n'])
+
 	def batch_label_to_one_hot(self,im):
 		im_one_hot=np.zeros((im.shape[0],im.shape[1],im.shape[2],self.class_n))
 		print(im_one_hot.shape)
@@ -413,7 +416,53 @@ class Dataset(NetObject):
 		deb.prints(out.shape)
 		out=cv2.cvtColor(out.astype(np.uint8),cv2.COLOR_RGB2BGR)
 		return out
+	def val_set_get(self,mode='stratified'):
+		clss_train_unique,clss_train_count=np.unique(self.patches['train']['label'].argmax(axis=3),return_counts=True)
+		self.patches['val']={'n':int(self.patches['train']['n']*0.2)}
+		
+		#===== CHOOSE VAL IDX
+		#mode='stratified'
+		if mode=='random':
+			self.patches['val']['idx']=np.random.choice(self.patches['train']['idx'],self.patches['val']['n'],replace=False)
+			
 
+			self.patches['val']['in']=self.patches['train']['in'][self.patches['val']['idx']]
+			self.patches['val']['label']=self.patches['train']['label'][self.patches['val']['idx']]
+		
+		elif mode=='stratified':
+			while True:
+				self.patches['val']['idx']=np.random.choice(self.patches['train']['idx'],self.patches['val']['n'],replace=False)
+				self.patches['val']['in']=self.patches['train']['in'][self.patches['val']['idx']]
+				self.patches['val']['label']=self.patches['train']['label'][self.patches['val']['idx']]
+		
+				clss_val_unique,clss_val_count=np.unique(self.patches['val']['label'].argmax(axis=3),return_counts=True)
+				
+				if not np.array_equal(clss_train_unique,clss_val_unique):
+					deb.prints(clss_train_unique)
+					deb.prints(clss_val_unique)
+					
+					pass
+				else:
+					percentages=clss_train_count
+					percentages=clss_val_count/clss_train_count
+					deb.prints(percentages)
+					#if np.any(percentages<0.1) or np.any(percentages>0.3):
+					if np.any(percentages>0.3):
+					
+						pass
+					else:
+						break
+
+		deb.prints(self.patches['val']['idx'].shape)
+
+		
+		deb.prints(self.patches['val']['in'].shape)
+		#deb.prints(data.patches['val']['label'].shape)
+		
+		self.patches['train']['in']=np.delete(self.patches['train']['in'],self.patches['val']['idx'],axis=0)
+		self.patches['train']['label']=np.delete(self.patches['train']['label'],self.patches['val']['idx'],axis=0)
+		#deb.prints(data.patches['train']['in'].shape)
+		#deb.prints(data.patches['train']['label'].shape)
 # ========== NetModel object implements model graph definition, train/testing, early stopping ================ #
 
 class NetModel(NetObject):
@@ -603,26 +652,13 @@ class NetModel(NetObject):
 		print('Start the training')
 		cback_tboard = keras.callbacks.TensorBoard(
 			log_dir='../summaries/', histogram_freq=0, batch_size=self.batch['train']['size'], write_graph=True, write_grads=False, write_images=False)
-		data.patches['train']['n']=data.patches['train']['in'].shape[0]
-		data.patches['train']['idx']=range(data.patches['train']['n'])
+		
+		
+		
 		#========= VAL INIT
-		data.patches['val']={'n':int(data.patches['train']['n']*0.2)}
-		
-		#===== CHOOSE VAL IDX
-		
-		data.patches['val']['idx']=np.random.choice(data.patches['train']['idx'],data.patches['val']['n'],replace=False)
-		deb.prints(data.patches['val']['idx'].shape)
+		val_set_mode='stratified'
+		data.val_set_get(val_set_mode)
 
-		data.patches['val']['in']=data.patches['train']['in'][data.patches['val']['idx']]
-		data.patches['val']['label']=data.patches['train']['label'][data.patches['val']['idx']]
-		
-		deb.prints(data.patches['val']['in'].shape)
-		#deb.prints(data.patches['val']['label'].shape)
-		
-		data.patches['train']['in']=np.delete(data.patches['train']['in'],data.patches['val']['idx'],axis=0)
-		data.patches['train']['label']=np.delete(data.patches['train']['label'],data.patches['val']['idx'],axis=0)
-		#deb.prints(data.patches['train']['in'].shape)
-		#deb.prints(data.patches['train']['label'].shape)
 		
 		count,unique=np.unique(data.patches['val']['label'].argmax(axis=3),return_counts=True)
 		print("Val label count,unique",count,unique)
@@ -679,7 +715,7 @@ class NetModel(NetObject):
 			data.patches['val']['prediction']=self.graph.predict(data.patches['val']['in'])
 
 			# Get val metrics
-
+			
 			metrics_val=data.metrics_get(data.patches['val'])
 			data.metrics_write_to_txt(metrics_val,epoch,path=self.report['val']['history_path'])
 			
@@ -727,7 +763,7 @@ class NetModel(NetObject):
 		
 			# Average epoch loss
 			self.metrics['test']['loss'] /= self.batch['test']['n']
-			print("Train loss={}, Test loss={}".format(self.metrics['train']['loss'],self.metrics['test']['loss']))
+			print("Loss. Train={}, Val={}, Test={}".format(self.metrics['train']['loss'],self.metrics['val']['loss'],self.metrics['test']['loss']))
 
 			#====================END METRICS GET===========================================#
 

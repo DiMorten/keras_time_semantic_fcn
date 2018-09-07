@@ -351,8 +351,10 @@ class Dataset(NetObject):
 		#with open(self.report['best']['text_path'], "w") as text_file:
 		#    text_file.write("Overall_acc,average_acc,f1_score: {0},{1},{2},{3}".format(str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(epoch)))
 		with open(self.report['best']['text_history_path'], "a") as text_file:
-			text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
-
+			#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
+			text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7])))
+			
+			text_file.write("\n")
 		
 	def metrics_per_class_from_im_get(self,name='im_reconstructed_rgb_test_predictionplen64_3.png',folder='../results/reconstructed/',average=None):
 		data={}
@@ -545,14 +547,15 @@ class NetModel(NetObject):
 		print(self.graph.summary())
 
 	def build(self):
+		deb.prints(self.t_len)
 		in_im = Input(shape=(self.t_len,self.patch_len, self.patch_len, self.channel_n))
 
 		#x = keras.layers.Permute((1,2,0,3))(in_im)
 		x = keras.layers.Permute((2,3,1,4))(in_im)
 		
 		x = Reshape((self.patch_len, self.patch_len,self.t_len*self.channel_n), name='predictions')(x)
-		out = DenseNetFCN((32, 32, 14), nb_dense_block=2, growth_rate=16, dropout_rate=0.2,
-                        nb_layers_per_block=2, upsampling_type='deconv', classes=12, 
+		out = DenseNetFCN((32, 32, self.t_len*self.channel_n), nb_dense_block=2, growth_rate=16, dropout_rate=0.2,
+                        nb_layers_per_block=2, upsampling_type='deconv', classes=self.class_n, 
                         activation='softmax', batchsize=32,input_tensor=x)
 		self.graph = Model(in_im, out)
 		print(self.graph.summary())
@@ -697,7 +700,7 @@ if __name__ == '__main__':
 	model = NetModel(epochs=args.epochs, patch_len=args.patch_len,
 					 patch_step_train=args.patch_step_train, eval_mode=args.eval_mode,
 					 batch_size_train=args.batch_size_train,batch_size_test=args.batch_size_test,
-					 patience=args.patience)
+					 patience=args.patience,t_len=args.t_len,class_n=args.class_n,path=args.path)
 	model.build()
 	#model.loss_weights=np.array([0.10259888, 0.2107262 , 0.1949083 , 0.20119307, 0.08057474,
     #   0.20999881]
@@ -719,12 +722,21 @@ if __name__ == '__main__':
 	#model.loss_weights=np.array([0,1.37852055e+00, 2.45986531e+02, 6.10172192e+01, 1.97027386e+03,0,3.71352450e+02 ,6.26956560e+00, 1.70878077e+01 ,1.00000000e+00,4.62502597e+03, 1.59184248e+01])
 	# Estimated with train
 	# This is an okay fcn
-	#model.loss_weights=np.array([0, 1.42610349e+00  , 7.30082405e+02  , 1.75681165e+01 ,  1.11196404e+03, 0,3.93620317e+02 ,  8.51592741e+00  , 2.28322375e+01 ,  1.00000000e+00,2.34818768e+03  , 2.45846645e+01])
+	###model.loss_weights=np.array([0, 1.42610349e+00  , 7.30082405e+02  , 1.75681165e+01 ,  1.11196404e+03, 0,3.93620317e+02 ,  8.51592741e+00  , 2.28322375e+01 ,  1.00000000e+00,2.34818768e+03  , 2.45846645e+01])
 	model.loss_weights=np.array([0,1,1,1,1,0,1,1,1,1,1,1])
 	#======end cv seq1
 	##model.loss_weights=np.ones(12)
 	##model.loss_weights[0]=0
 	##model.loss_weights/=11
+
+	#=========== cv se12
+
+	#model.loss_weights=np.array([0,2.87029782e+02 ,1.15257798e+02,0,0,0 ,5.51515771e+01 ,1.45716824e+01, 3.90684535e+01 ,1.00000000e+00 ,4.01800573e+03 ,4.20670477e+01])
+	#model.loss_weights=np.array([0,])
+	#=========== Hannover
+
+	model.loss_weights=np.array([0,3.32893347, 2.62162162, 1.06386569 ,1.95959596, 1.    ,     7.92583281,
+ 2.20570229, 1.17444351])
 
 	metrics=['accuracy']
 	#metrics=['accuracy',fmeasure,categorical_accuracy]

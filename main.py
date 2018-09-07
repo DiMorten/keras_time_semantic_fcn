@@ -91,11 +91,12 @@ class NetObject(object):
 		self.channel_n = channel_n
 		self.debug = debug
 		self.class_n = class_n
-		self.report={'best':{}}
+		self.report={'best':{}, 'val':{}}
 		self.report['exp_id']=exp_id
 		self.report['best']['text_name']='result_'+exp_id+'.txt'
 		self.report['best']['text_path']='../results/'+self.report['best']['text_name']
 		self.report['best']['text_history_path']='../results/'+'history.txt'
+		self.report['val']['history_path']='../results/'+'history_val.txt'
 		
 		self.t_len=t_len
 # ================= Dataset class implements data loading, patch extraction, metric calculation and image reconstruction =======#
@@ -329,9 +330,7 @@ class Dataset(NetObject):
 		metrics['per_class_acc']=(metrics['confusion_matrix'].astype('float') / metrics['confusion_matrix'].sum(axis=1)[:, np.newaxis]).diagonal()
 		
 		metrics['average_acc']=np.average(metrics['per_class_acc'][~np.isnan(metrics['per_class_acc'])])
-		deb.prints(metrics['confusion_matrix'])
-		#metrics['average_acc'],metrics['per_class_acc']=self.average_acc(data['prediction_h'],data['label_h'])
-		deb.prints(metrics['per_class_acc'])
+
 		
 		#=====================IMG RECONSTRUCT============================================#
 		if ignore_bcknd!=True:
@@ -347,10 +346,10 @@ class Dataset(NetObject):
 
 		return metrics
 
-	def metrics_write_to_txt(self,metrics,epoch=0):
+	def metrics_write_to_txt(self,metrics,epoch=0,path=None):
 		#with open(self.report['best']['text_path'], "w") as text_file:
 		#    text_file.write("Overall_acc,average_acc,f1_score: {0},{1},{2},{3}".format(str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(epoch)))
-		with open(self.report['best']['text_history_path'], "a") as text_file:
+		with open(path, "a") as text_file:
 			#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
 			text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7])))
 			
@@ -422,7 +421,7 @@ class NetModel(NetObject):
 		super().__init__(*args, **kwargs)
 		if self.debug >= 1:
 			print("Initializing Model instance")
-		self.metrics = {'train': {}, 'test': {}}
+		self.metrics = {'train': {}, 'test': {}, 'val':{}}
 		self.batch = {'train': {}, 'test': {}}
 		self.batch['train']['size'] = batch_size_train
 		self.batch['test']['size'] = batch_size_test
@@ -604,18 +603,48 @@ class NetModel(NetObject):
 		print('Start the training')
 		cback_tboard = keras.callbacks.TensorBoard(
 			log_dir='../summaries/', histogram_freq=0, batch_size=self.batch['train']['size'], write_graph=True, write_grads=False, write_images=False)
+		data.patches['train']['n']=data.patches['train']['in'].shape[0]
+		data.patches['train']['idx']=range(data.patches['train']['n'])
+		#========= VAL INIT
+		data.patches['val']={'n':int(data.patches['train']['n']*0.2)}
+		
+		#===== CHOOSE VAL IDX
+		
+		data.patches['val']['idx']=np.random.choice(data.patches['train']['idx'],data.patches['val']['n'],replace=False)
+		deb.prints(data.patches['val']['idx'].shape)
 
+		data.patches['val']['in']=data.patches['train']['in'][data.patches['val']['idx']]
+		data.patches['val']['label']=data.patches['train']['label'][data.patches['val']['idx']]
+		
+		deb.prints(data.patches['val']['in'].shape)
+		#deb.prints(data.patches['val']['label'].shape)
+		
+		data.patches['train']['in']=np.delete(data.patches['train']['in'],data.patches['val']['idx'],axis=0)
+		data.patches['train']['label']=np.delete(data.patches['train']['label'],data.patches['val']['idx'],axis=0)
+		#deb.prints(data.patches['train']['in'].shape)
+		#deb.prints(data.patches['train']['label'].shape)
+		
+		count,unique=np.unique(data.patches['val']['label'].argmax(axis=3),return_counts=True)
+		print("Val label count,unique",count,unique)
+
+		count,unique=np.unique(data.patches['train']['label'].argmax(axis=3),return_counts=True)
+		print("Train count,unique",count,unique)
+		
+		count,unique=np.unique(data.patches['test']['label'].argmax(axis=3),return_counts=True)
+		print("Test count,unique",count,unique)
+		
 		#==================== ESTIMATE BATCH NUMBER===============================#
 		batch = {'train': {}, 'test': {}}
 		self.batch['train']['n'] = data.patches['train']['in'].shape[0] // self.batch['train']['size']
 		self.batch['test']['n'] = data.patches['test']['in'].shape[0] // self.batch['test']['size']
 
 		data.patches['test']['prediction']=np.zeros_like(data.patches['test']['label'])
-		count,unique=np.unique(data.patches['test']['label'].argmax(axis=3),return_counts=True)
-		print("count,unique",count,unique)
 		deb.prints(data.patches['test']['label'].shape)
 		deb.prints(self.batch['test']['n'])
 		
+
+		#if self.train_mode==
+
 		#data.im_reconstruct(subset='test',mode='label')
 		#for epoch in [0,1]:
 		#==============================START TRAIN/TEST LOOP============================#
@@ -642,9 +671,22 @@ class NetModel(NetObject):
 			# Average epoch loss
 			self.metrics['train']['loss'] /= self.batch['train']['n']
 
+			
+			#================== VAL LOOP=====================#
+			data.patches['val']['prediction']=np.zeros_like(data.patches['val']['label'])
+			self.metrics['val']['loss'] = self.graph.test_on_batch(
+					data.patches['val']['in'], data.patches['val']['label'])
+			data.patches['val']['prediction']=self.graph.predict(data.patches['val']['in'])
+
+			# Get val metrics
+
+			metrics_val=data.metrics_get(data.patches['val'])
+			data.metrics_write_to_txt(metrics_val,epoch,path=self.report['val']['history_path'])
+			
+			#==========================TEST LOOP================================================#
 			data.patches['test']['prediction']=np.zeros_like(data.patches['test']['label'])
 			self.batch_test_stats=True
-			#==========================TEST LOOP================================================#
+
 			for batch_id in range(0, self.batch['test']['n']):
 				idx0 = batch_id*self.batch['test']['size']
 				idx1 = (batch_id+1)*self.batch['test']['size']
@@ -663,16 +705,25 @@ class NetModel(NetObject):
 			deb.prints(idx1)
 			print("Epoch={}".format(epoch))	
 			
+
 			# Get test metrics
 			metrics=data.metrics_get(data.patches['test'])
 			
 			# Check early stop and store results if they are the best
-			self.early_stop_check(metrics,epoch)
-			data.metrics_write_to_txt(metrics,epoch)
+			self.early_stop_check(metrics_val,epoch)
+			data.metrics_write_to_txt(metrics,epoch,path=self.report['best']['text_history_path'])
 			#self.test_metrics_evaluate(data.patches['test'],metrics,epoch)
 			#if self.early_stop['signal']==True:
 			#	break
+
+
+			deb.prints(metrics['confusion_matrix'])
+			#metrics['average_acc'],metrics['per_class_acc']=self.average_acc(data['prediction_h'],data['label_h'])
+			deb.prints(metrics['per_class_acc'])
+			deb.prints(metrics_val['per_class_acc'])
+			
 			print('oa={}, aa={}, f1={}'.format(metrics['overall_acc'],metrics['average_acc'],metrics['f1_score']))
+			print('val oa={}, aa={}, f1={}'.format(metrics_val['overall_acc'],metrics_val['average_acc'],metrics_val['f1_score']))
 		
 			# Average epoch loss
 			self.metrics['test']['loss'] /= self.batch['test']['n']
@@ -731,12 +782,11 @@ if __name__ == '__main__':
 
 	#=========== cv se12
 
-	#model.loss_weights=np.array([0,2.87029782e+02 ,1.15257798e+02,0,0,0 ,5.51515771e+01 ,1.45716824e+01, 3.90684535e+01 ,1.00000000e+00 ,4.01800573e+03 ,4.20670477e+01])
+	model.loss_weights=np.array([0,2.87029782e+02 ,1.15257798e+02,0,0,0 ,5.51515771e+01 ,1.45716824e+01, 3.90684535e+01 ,1.00000000e+00 ,4.01800573e+03 ,4.20670477e+01])
 	#model.loss_weights=np.array([0,])
 	#=========== Hannover
 
-	model.loss_weights=np.array([0,3.32893347, 2.62162162, 1.06386569 ,1.95959596, 1.    ,     7.92583281,
- 2.20570229, 1.17444351])
+	#model.loss_weights=np.array([0,3.32893347, 2.62162162, 1.06386569 ,1.95959596, 1.    ,     7.92583281,2.20570229, 1.17444351])
 
 	metrics=['accuracy']
 	#metrics=['accuracy',fmeasure,categorical_accuracy]

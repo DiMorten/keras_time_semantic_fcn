@@ -457,7 +457,7 @@ class Dataset(NetObject):
 					percentages=clss_val_count/clss_train_count
 					deb.prints(percentages)
 					#if np.any(percentages<0.1) or np.any(percentages>0.3):
-					if np.any(percentages>0.3):
+					if np.any(percentages>0.23):
 					
 						pass
 					else:
@@ -784,11 +784,15 @@ class NetModel(NetObject):
 
 				metrics_val=data.metrics_get(data.patches['val'],debug=0)
 
+				self.early_stop_check(metrics_val,epoch)
+				if self.early_stop['signal']==True:
+					self.graph.save('model_'+str(epoch)+'.h5')
+
 				metrics_val['per_class_acc'].setflags(write=1)
 				metrics_val['per_class_acc'][np.isnan(metrics_val['per_class_acc'])]=-1
 				print(metrics_val['per_class_acc'])
 				
-				if epoch % 10 == 0:
+				if epoch % 50 == 0:
 					print("Writing val...")
 					#print(txt['val']['metrics'])
 					for i in range(len(txt['val']['metrics'])):
@@ -832,8 +836,7 @@ class NetModel(NetObject):
 			metrics=data.metrics_get(data.patches['test'],debug=1)
 			
 			# Check early stop and store results if they are the best
-			self.early_stop_check(metrics_val,epoch)
-			if epoch % 10 == 0:
+			if epoch % 50 == 0:
 				print("Writing to file...")
 				for i in range(len(txt['test']['metrics'])):
 
@@ -888,7 +891,7 @@ if __name__ == '__main__':
 	# === SELECT VALIDATION SET FROM TRAIN SET
 	val_set=True
 	#val_set_mode='stratified'
-	val_set_mode='random_v2'
+	val_set_mode='stratified'
 	if val_set:
 		data.val_set_get(val_set_mode,0.15)
 	# ===

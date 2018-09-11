@@ -48,7 +48,7 @@ parser.add_argument('-db', '--debug', dest='debug',
 parser.add_argument('-ep', '--epochs', dest='epochs',
 					type=int, default=8000, help='patch len')
 parser.add_argument('-pt', '--patience', dest='patience',
-					type=int, default=300, help='patience')
+					type=int, default=20, help='patience')
 
 parser.add_argument('-bstr', '--batch_size_train', dest='batch_size_train',
 					type=int, default=32, help='patch len')
@@ -481,8 +481,14 @@ class Dataset(NetObject):
 				clss_train_count_in_val=clss_train_count[np.isin(clss_train_unique,clss_val_unique)]
 				percentages=clss_val_count/clss_train_count_in_val
 				deb.prints(percentages)
+				if not np.array_equal(clss_train_unique,clss_val_unique):
+					deb.prints(clss_train_unique)
+					deb.prints(clss_val_unique)
+					
+					pass
+				
 				#if np.any(percentages<0.1) or np.any(percentages>0.3):
-				if np.any(percentages>0.26):
+				if np.any(percentages<0.05) or np.any(percentages>0.23):
 					pass
 				else:
 					break				
@@ -692,7 +698,7 @@ class NetModel(NetObject):
 
 		self.train_loop(data)
 
-	def early_stop_check(self,metrics,epoch,most_important='average_acc'):
+	def early_stop_check(self,metrics,epoch,most_important='f1_score'):
 
 		if metrics[most_important]>=self.early_stop['best']:
 			self.early_stop['best']=metrics[most_important]
@@ -779,16 +785,21 @@ class NetModel(NetObject):
 					data.patches['val']['in'], data.patches['val']['label'])
 			data.patches['val']['prediction']=self.graph.predict(data.patches['val']['in'])
 
+			self.early_stop_save=True
 			if self.val_set:
 				# Get val metrics
 
 				metrics_val=data.metrics_get(data.patches['val'],debug=0)
-
+				
+				self.early_stop_check(metrics_val,epoch,most_important='f1_score')
+				if self.early_stop['signal']==True:
+					self.graph.save('model_'+str(epoch)+'.h5')
+				
 				metrics_val['per_class_acc'].setflags(write=1)
 				metrics_val['per_class_acc'][np.isnan(metrics_val['per_class_acc'])]=-1
 				print(metrics_val['per_class_acc'])
 				
-				if epoch % 10 == 0:
+				if epoch % 50 == 0:
 					print("Writing val...")
 					#print(txt['val']['metrics'])
 					for i in range(len(txt['val']['metrics'])):
@@ -832,8 +843,7 @@ class NetModel(NetObject):
 			metrics=data.metrics_get(data.patches['test'],debug=1)
 			
 			# Check early stop and store results if they are the best
-			self.early_stop_check(metrics_val,epoch)
-			if epoch % 10 == 0:
+			if epoch % 50 == 0:
 				print("Writing to file...")
 				for i in range(len(txt['test']['metrics'])):
 

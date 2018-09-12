@@ -328,10 +328,10 @@ class Dataset(NetObject):
 		
 		#========================METRICS GET================================================#
 		metrics={}
-		metrics['f1_score']=f1_score(data['prediction_h'],data['label_h'],average='macro')
-		metrics['f1_score_weighted']=f1_score(data['prediction_h'],data['label_h'],average='weighted')
+		metrics['f1_score']=f1_score(data['label_h'],data['prediction_h'],average='macro')
+		metrics['f1_score_weighted']=f1_score(data['label_h'],data['prediction_h'],average='weighted')
 		
-		metrics['overall_acc']=accuracy_score(data['prediction_h'],data['label_h'])
+		metrics['overall_acc']=accuracy_score(data['label_h'],data['prediction_h'])
 		metrics['confusion_matrix']=confusion_matrix(data['label_h'].argmax(axis=1),data['prediction_h'].argmax(axis=1))
 		metrics['per_class_acc']=(metrics['confusion_matrix'].astype('float') / metrics['confusion_matrix'].sum(axis=1)[:, np.newaxis]).diagonal()
 		
@@ -785,6 +785,7 @@ class NetModel(NetObject):
 				metrics_val=data.metrics_get(data.patches['val'],debug=0)
 
 				self.early_stop_check(metrics_val,epoch)
+				if epoch==1000 or epoch==700 or epoch==500 or epoch==1200:
 				if self.early_stop['signal']==True:
 					self.graph.save('model_'+str(epoch)+'.h5')
 

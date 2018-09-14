@@ -27,6 +27,7 @@ from densnet import DenseNetFCN
 from metrics import fmeasure,categorical_accuracy
 import deb
 from keras_weighted_categorical_crossentropy import weighted_categorical_crossentropy, sparse_accuracy_ignoring_last_label
+from keras.models import load_model
 
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('-tl', '--t_len', dest='t_len',
@@ -645,8 +646,8 @@ class NetModel(NetObject):
 		
 		x = Reshape((self.patch_len, self.patch_len,self.t_len*self.channel_n), name='predictions')(x)
 		out = DenseNetFCN((32, 32, self.t_len*self.channel_n), nb_dense_block=2, growth_rate=16, dropout_rate=0.2,
-                        nb_layers_per_block=2, upsampling_type='deconv', classes=self.class_n, 
-                        activation='softmax', batchsize=32,input_tensor=x)
+						nb_layers_per_block=2, upsampling_type='deconv', classes=self.class_n, 
+						activation='softmax', batchsize=32,input_tensor=x)
 		self.graph = Model(in_im, out)
 		print(self.graph.summary())
 	def compile(self, optimizer, loss='binary_crossentropy', metrics=['accuracy',metrics.categorical_accuracy],loss_weights=None):
@@ -673,8 +674,48 @@ class NetModel(NetObject):
 				self.loss_weights[clss]=0
 		deb.prints(self.loss_weights)
 
+	def test(self,data):
+		data.patches['train']['batch_n'] = data.patches['train']['in'].shape[0]//self.batch['train']['size']
+		data.patches['test']['batch_n'] = data.patches['test']['in'].shape[0]//self.batch['test']['size']
 
+		batch = {'train': {}, 'test': {}}
+		self.batch['train']['n'] = data.patches['train']['in'].shape[0] // self.batch['train']['size']
+		self.batch['test']['n'] = data.patches['test']['in'].shape[0] // self.batch['test']['size']
 
+		data.patches['test']['prediction']=np.zeros_like(data.patches['test']['label'])
+		deb.prints(data.patches['test']['label'].shape)
+		deb.prints(self.batch['test']['n'])
+
+		self.metrics['test']['loss'] = np.zeros((1, 2))
+
+		data.patches['test']['prediction']=np.zeros_like(data.patches['test']['label'])
+		self.batch_test_stats=True
+
+		for batch_id in range(0, self.batch['test']['n']):
+			idx0 = batch_id*self.batch['test']['size']
+			idx1 = (batch_id+1)*self.batch['test']['size']
+
+			batch['test']['in'] = data.patches['test']['in'][idx0:idx1]
+			batch['test']['label'] = data.patches['test']['label'][idx0:idx1]
+
+			if self.batch_test_stats:
+				self.metrics['test']['loss'] += self.graph.test_on_batch(
+					batch['test']['in'], batch['test']['label'])		# Accumulated epoch
+
+			data.patches['test']['prediction'][idx0:idx1]=self.graph.predict(batch['test']['in'],batch_size=self.batch['test']['size'])
+
+		#====================METRICS GET================================================#
+		deb.prints(data.patches['test']['label'].shape)		
+		deb.prints(idx1)
+		print("Epoch={}".format(epoch))	
+		
+		# Average epoch loss
+		self.metrics['test']['loss'] /= self.batch['test']['n']
+			
+		# Get test metrics
+		metrics=data.metrics_get(data.patches['test'],debug=1)
+		print('oa={}, aa={}, f1={}, f1_wght={}'.format(metrics['overall_acc'],
+			metrics['average_acc'],metrics['f1_score'],metrics['f1_score_weighted']))
 	def train(self, data):
 
 		# Random shuffle
@@ -786,6 +827,9 @@ class NetModel(NetObject):
 
 				self.early_stop_check(metrics_val,epoch)
 				if epoch==1000 or epoch==700 or epoch==500 or epoch==1200:
+					self.early_stop['signal']=True
+				else:
+					self.early_stop['signal']=False
 				if self.early_stop['signal']==True:
 					self.graph.save('model_'+str(epoch)+'.h5')
 
@@ -906,6 +950,7 @@ if __name__ == '__main__':
 	deb.prints(count)
 	data.label_unique=unique.copy()
 	adam = Adam(lr=0.0001, beta_1=0.9)
+	
 	model = NetModel(epochs=args.epochs, patch_len=args.patch_len,
 					 patch_step_train=args.patch_step_train, eval_mode=args.eval_mode,
 					 batch_size_train=args.batch_size_train,batch_size_test=args.batch_size_test,
@@ -913,17 +958,16 @@ if __name__ == '__main__':
 					 val_set=val_set)
 	model.build()
 	model.loss_weights_estimate(data)
-
 	#model.loss_weights=np.array([0.10259888, 0.2107262 , 0.1949083 , 0.20119307, 0.08057474,
-    #   0.20999881]
+	#   0.20999881]
 	#model.loss_weights=np.array([0,0.04274219, 0.12199843, 0.11601452, 0.12202774, 0.12183601,                                      
-    #   0.1099085 , 0.11723573, 0.00854844, 0.12208636, 0.11760209]).astype(np.float64)
+	#   0.1099085 , 0.11723573, 0.00854844, 0.12208636, 0.11760209]).astype(np.float64)
 	#model.loss_weights=np.array([0,1,1,1,1,1,1,1,1,1,1,1]).astype(np.float64)/11
 	#model.loss_weights=np.array([0.        , 0.06051054, 0.13370499, 0.13283712, 0.13405423,
-    #   0.        , 0.13397788, 0.11706449, 0.12805041, 0.03190986,
-    #   0.        , 0.12789048]).astype(np.float64)
+	#   0.        , 0.13397788, 0.11706449, 0.12805041, 0.03190986,
+	#   0.        , 0.12789048]).astype(np.float64)
 	#model.loss_weights=np.array([0,1.39506639e+00, 2.60304567e+02, 1.03202335e+02, 1.93963056e+04,0,0,
-     #  6.00161586e+00, 1.66971628e+01, 1.00000000e+00, 0,1.70606546e+01]).astype(np.float64)
+	 #  6.00161586e+00, 1.66971628e+01, 1.00000000e+00, 0,1.70606546e+01]).astype(np.float64)
 	
 	#model.loss_weights=np.array([0,1.41430758e+00, 2.70356529e+02, 9.87119740e+01, 2.17569417e+05,0,
  #2.43094320e+03, 5.97588208e+00, 1.65553794e+01, 1.00000000e+00,0,
@@ -953,6 +997,11 @@ if __name__ == '__main__':
 	#metrics=['accuracy',fmeasure,categorical_accuracy]
 	model.compile(loss='binary_crossentropy',
 				  optimizer=adam, metrics=metrics,loss_weights=model.loss_weights)
+	model_load=False
+	if model_load:
+		model=load_model('/home/lvc/Documents/Jorg/sbsr/fcn_model/results/seq2_true_norm/models/model_1000.h5')
+		model.test(data)
+	
 	if args.debug:
 		deb.prints(np.unique(data.patches['train']['label']))
 		deb.prints(data.patches['train']['label'].shape)

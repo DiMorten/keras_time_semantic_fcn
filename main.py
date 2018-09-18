@@ -761,9 +761,9 @@ class NetModel(NetObject):
 		#========= VAL INIT
 
 
-		
-		count,unique=np.unique(data.patches['val']['label'].argmax(axis=3),return_counts=True)
-		print("Val label count,unique",count,unique)
+		if self.val_set:
+			count,unique=np.unique(data.patches['val']['label'].argmax(axis=3),return_counts=True)
+			print("Val label count,unique",count,unique)
 
 		count,unique=np.unique(data.patches['train']['label'].argmax(axis=3),return_counts=True)
 		print("Train count,unique",count,unique)
@@ -815,12 +815,13 @@ class NetModel(NetObject):
 
 
 			#================== VAL LOOP=====================#
-			data.patches['val']['prediction']=np.zeros_like(data.patches['val']['label'])
-			self.metrics['val']['loss'] = self.graph.test_on_batch(
-					data.patches['val']['in'], data.patches['val']['label'])
-			data.patches['val']['prediction']=self.graph.predict(data.patches['val']['in'])
-
 			if self.val_set:
+				data.patches['val']['prediction']=np.zeros_like(data.patches['val']['label'])
+				self.metrics['val']['loss'] = self.graph.test_on_batch(
+						data.patches['val']['in'], data.patches['val']['label'])
+				data.patches['val']['prediction']=self.graph.predict(data.patches['val']['in'])
+
+
 				# Get val metrics
 
 				metrics_val=data.metrics_get(data.patches['val'],debug=0)
@@ -908,14 +909,20 @@ class NetModel(NetObject):
 			deb.prints(metrics['confusion_matrix'])
 			#metrics['average_acc'],metrics['per_class_acc']=self.average_acc(data['prediction_h'],data['label_h'])
 			deb.prints(metrics['per_class_acc'])
-			deb.prints(metrics_val['per_class_acc'])
+			if self.val_set:
+				deb.prints(metrics_val['per_class_acc'])
 			
 			print('oa={}, aa={}, f1={}, f1_wght={}'.format(metrics['overall_acc'],
 				metrics['average_acc'],metrics['f1_score'],metrics['f1_score_weighted']))
-			print('val oa={}, aa={}, f1={}, f1_wght={}'.format(metrics_val['overall_acc'],
-				metrics_val['average_acc'],metrics_val['f1_score'],metrics_val['f1_score_weighted']))
-			print("Loss. Train={}, Val={}, Test={}".format(self.metrics['train']['loss'],
-				self.metrics['val']['loss'],self.metrics['test']['loss']))
+			if self.val_set:
+				print('val oa={}, aa={}, f1={}, f1_wght={}'.format(metrics_val['overall_acc'],
+					metrics_val['average_acc'],metrics_val['f1_score'],metrics_val['f1_score_weighted']))
+			if self.val_set:
+			
+				print("Loss. Train={}, Val={}, Test={}".format(self.metrics['train']['loss'],
+					self.metrics['val']['loss'],self.metrics['test']['loss']))
+			else:
+				print("Loss. Train={}, Test={}".format(self.metrics['train']['loss'],self.metrics['test']['loss']))
 
 			#====================END METRICS GET===========================================#
 
@@ -934,15 +941,16 @@ if __name__ == '__main__':
 	deb.prints(data.patches['train']['label'].shape)
 
 	# === SELECT VALIDATION SET FROM TRAIN SET
-	val_set=True
+	val_set=False
 	#val_set_mode='stratified'
 	val_set_mode='stratified'
 	if val_set:
 		data.val_set_get(val_set_mode,0.15)
+		deb.prints(data.patches['val']['label'].shape)
+	
 	# ===
 	
 	deb.prints(data.patches['train']['label'].shape)
-	deb.prints(data.patches['val']['label'].shape)
 	deb.prints(data.patches['test']['label'].shape)
 	
 	unique,count=np.unique(data.patches['test']['label'].argmax(axis=3),return_counts=True)

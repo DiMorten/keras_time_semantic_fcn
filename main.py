@@ -458,7 +458,7 @@ class Dataset(NetObject):
 					percentages=clss_val_count/clss_train_count
 					deb.prints(percentages)
 					#if np.any(percentages<0.1) or np.any(percentages>0.3):
-					if np.any(percentages>0.23):
+					if np.any(percentages>0.2):
 					
 						pass
 					else:
@@ -930,6 +930,7 @@ class NetModel(NetObject):
 flag = {"data_create": 2, "label_one_hot": True}
 if __name__ == '__main__':
 	#
+
 	data = Dataset(patch_len=args.patch_len, patch_step_train=args.patch_step_train,
 		patch_step_test=args.patch_step_test,exp_id=args.exp_id,
 		path=args.path, t_len=args.t_len, class_n=args.class_n)
@@ -938,17 +939,14 @@ if __name__ == '__main__':
 	elif flag['data_create']==2:
 		data.create_load()
 
-	deb.prints(data.patches['train']['label'].shape)
 
-	# === SELECT VALIDATION SET FROM TRAIN SET
-	val_set=False
+	val_set=True
 	#val_set_mode='stratified'
 	val_set_mode='stratified'
-	if val_set:
-		data.val_set_get(val_set_mode,0.15)
-		deb.prints(data.patches['val']['label'].shape)
 	
-	# ===
+
+	deb.prints(data.patches['train']['label'].shape)
+
 	
 	deb.prints(data.patches['train']['label'].shape)
 	deb.prints(data.patches['test']['label'].shape)
@@ -957,6 +955,8 @@ if __name__ == '__main__':
 	deb.prints(unique)
 	deb.prints(count)
 	data.label_unique=unique.copy()
+	
+
 	adam = Adam(lr=0.0001, beta_1=0.9)
 	
 	model = NetModel(epochs=args.epochs, patch_len=args.patch_len,
@@ -965,7 +965,17 @@ if __name__ == '__main__':
 					 patience=args.patience,t_len=args.t_len,class_n=args.class_n,path=args.path,
 					 val_set=val_set)
 	model.build()
+
+
 	model.loss_weights_estimate(data)
+	
+	# === SELECT VALIDATION SET FROM TRAIN SET
+	if val_set:
+		data.val_set_get(val_set_mode,0.15)
+		deb.prints(data.patches['val']['label'].shape)
+	
+	# ===
+
 	#model.loss_weights=np.array([0.10259888, 0.2107262 , 0.1949083 , 0.20119307, 0.08057474,
 	#   0.20999881]
 	#model.loss_weights=np.array([0,0.04274219, 0.12199843, 0.11601452, 0.12202774, 0.12183601,                                      

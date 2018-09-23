@@ -369,15 +369,15 @@ class Dataset(NetObject):
 					str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
 					str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7])))
 		elif dataset=='campo_verde':
-		with open(path, "a") as text_file:
-			#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
-			text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}\n".format(str(epoch),
-				str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['f1_score_weighted']),str(loss[0]),str(loss[1]),
-				str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),
-				str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
-				str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7]),str(metrics['per_class_acc'][8]),
-				str(metrics['per_class_acc'][9]),str(metrics['per_class_acc'][10])))
-			
+			with open(path, "a") as text_file:
+				#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
+				text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}\n".format(str(epoch),
+					str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['f1_score_weighted']),str(loss[0]),str(loss[1]),
+					str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),
+					str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
+					str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7]),str(metrics['per_class_acc'][8]),
+					str(metrics['per_class_acc'][9]),str(metrics['per_class_acc'][10])))
+				
 			
 	def metrics_per_class_from_im_get(self,name='im_reconstructed_rgb_test_predictionplen64_3.png',folder='../results/reconstructed/',average=None):
 		data={}

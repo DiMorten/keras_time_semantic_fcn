@@ -359,14 +359,24 @@ class Dataset(NetObject):
 		#deb.prints(loss)
 		#deb.prints(loss[0])
 		#deb.prints(loss[1])
-		
+		dataset='campo_verde'
+		if dataset=='hannover':
+			with open(path, "a") as text_file:
+				#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
+				text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}\n".format(str(epoch),
+					str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['f1_score_weighted']),str(loss[0]),str(loss[1]),
+					str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),
+					str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
+					str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7])))
+		elif dataset=='campo_verde':
 		with open(path, "a") as text_file:
 			#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
 			text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}\n".format(str(epoch),
 				str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['f1_score_weighted']),str(loss[0]),str(loss[1]),
 				str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),
 				str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
-				str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7])))
+				str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7]),str(metrics['per_class_acc'][8]),
+				str(metrics['per_class_acc'][9]),str(metrics['per_class_acc'][10])))
 			
 			
 	def metrics_per_class_from_im_get(self,name='im_reconstructed_rgb_test_predictionplen64_3.png',folder='../results/reconstructed/',average=None):
@@ -544,13 +554,60 @@ class Dataset(NetObject):
 			print(clss)
 			if balance["label"].shape[0]>samples_per_class:
 				replace=False
+				index_squeezed=range(balance["label"].shape[0])
+				index_squeezed = np.random.choice(index_squeezed, samples_per_class, replace=replace)
+				#print(idxs.shape,index_squeezed.shape)
+				balance["out_labels"][k*samples_per_class:k*samples_per_class + samples_per_class] = balance["label"][index_squeezed]
+				balance["out_in"][k*samples_per_class:k*samples_per_class + samples_per_class] = balance["in"][index_squeezed]
 			else:
-				replace=True
-			index_squeezed=range(balance["label"].shape[0])
-			index_squeezed = np.random.choice(index_squeezed, samples_per_class, replace=replace)
-			print(idxs.shape,index_squeezed.shape)
-			balance["out_labels"][k*samples_per_class:k*samples_per_class + samples_per_class] = balance["label"][index_squeezed]
-			balance["out_in"][k*samples_per_class:k*samples_per_class + samples_per_class] = balance["in"][index_squeezed]
+				augmented_data = balance["in"]
+				augmented_labels = balance["label"]
+
+				cont_transf = 0
+				for i in range(int(samples_per_class/balance["label"].shape[0] - 1)):                
+					augmented_data_temp = balance["in"]
+					augmented_label_temp = balance["label"]
+					
+					if cont_transf == 0:
+						augmented_data_temp = np.rot90(augmented_data_temp,1,(2,3))
+						augmented_label_temp = np.rot90(augmented_label_temp,1,(1,2))
+					
+					elif cont_transf == 1:
+						augmented_data_temp = np.rot90(augmented_data_temp,2,(2,3))
+						augmented_label_temp = np.rot90(augmented_label_temp,2,(1,2))
+
+					elif cont_transf == 2:
+						augmented_data_temp = np.flip(augmented_data_temp,2)
+						augmented_label_temp = np.flip(augmented_label_temp,1)
+						
+					elif cont_transf == 3:
+						augmented_data_temp = np.flip(augmented_data_temp,3)
+						augmented_label_temp = np.flip(augmented_label_temp,2)
+					
+					elif cont_transf == 4:
+						augmented_data_temp = np.rot90(augmented_data_temp,3,(2,3))
+						augmented_label_temp = np.rot90(augmented_label_temp,3,(1,2))
+						
+					elif cont_transf == 5:
+						augmented_data_temp = augmented_data_temp
+						augmented_label_temp = augmented_label_temp
+						
+					cont_transf+=1
+					if cont_transf==6:
+						cont_transf = 0
+					print(augmented_data.shape,augmented_data_temp.shape)				
+					augmented_data = np.vstack((augmented_data,augmented_data_temp))
+					augmented_labels = np.vstack((augmented_labels,augmented_label_temp))
+					
+	#            augmented_labels_temp = np.tile(clss_labels,samples_per_class/num_samples )
+				#print(augmented_data.shape)
+				#print(augmented_labels.shape)
+				index = range(augmented_data.shape[0])
+				index = np.random.choice(index, samples_per_class, replace=True)
+				balance["out_labels"][k*samples_per_class:k*samples_per_class + samples_per_class] = augmented_labels[index]
+				balance["out_in"][k*samples_per_class:k*samples_per_class + samples_per_class] = augmented_data[index]
+
+
 			k+=1
 		
 		idx = np.random.permutation(balance["out_labels"].shape[0])
@@ -745,6 +802,7 @@ class NetModel(NetObject):
 				self.loss_weights[clss]=0
 		deb.prints(self.loss_weights)
 
+		self.loss_weights[1:]=1
 	def test(self,data):
 		data.patches['train']['batch_n'] = data.patches['train']['in'].shape[0]//self.batch['train']['size']
 		data.patches['test']['batch_n'] = data.patches['test']['in'].shape[0]//self.batch['test']['size']
@@ -810,12 +868,15 @@ class NetModel(NetObject):
 			self.early_stop['best']=metrics[most_important]
 			self.early_stop['count']=0
 			print("Best metric updated")
-			
+			self.early_stop['best_updated']=True
 			#data.im_reconstruct(subset='test',mode='prediction')
 		else:
+			self.early_stop['best_updated']=False
 			self.early_stop['count']+=1
+			deb.prints(self.early_stop['count'])
 			if self.early_stop["count"]>=self.early_stop["patience"]:
 				self.early_stop["signal"]=True
+
 			else:
 				self.early_stop["signal"]=False
 			
@@ -956,10 +1017,11 @@ class NetModel(NetObject):
 			# Get test metrics
 			metrics=data.metrics_get(data.patches['test'],debug=1)
 			
-
+			if self.early_stop['best_updated']==True:
+				self.early_stop['best_predictions']=data.patches['test']['prediction']
 			if self.early_stop["signal"]==True:
 				print("EARLY STOP EPOCH",epoch,metrics)
-				np.save("prediction.npy",data.patches['test']['prediction'])
+				np.save("prediction.npy",self.early_stop['best_predictions'])
 				np.save("labels.npy",data.patches['test']['label'])
 				break
 				
@@ -1022,9 +1084,7 @@ if __name__ == '__main__':
 		data.create_load()
 
 
-	# If patch balancing
-	data.semantic_balance()
-
+	
 	val_set=True
 	#val_set_mode='stratified'
 	val_set_mode='stratified'
@@ -1059,6 +1119,10 @@ if __name__ == '__main__':
 		data.val_set_get(val_set_mode,0.15)
 		deb.prints(data.patches['val']['label'].shape)
 	
+
+	# If patch balancing
+	data.semantic_balance()
+
 	# ===
 
 	#model.loss_weights=np.array([0.10259888, 0.2107262 , 0.1949083 , 0.20119307, 0.08057474,

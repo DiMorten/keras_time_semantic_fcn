@@ -359,7 +359,7 @@ class Dataset(NetObject):
 		#deb.prints(loss)
 		#deb.prints(loss[0])
 		#deb.prints(loss[1])
-		dataset='campo_verde'
+		dataset='seq1'
 		if dataset=='hannover':
 			with open(path, "a") as text_file:
 				#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
@@ -368,16 +368,26 @@ class Dataset(NetObject):
 					str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),
 					str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
 					str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7])))
-		elif dataset=='campo_verde':
+		elif dataset=='seq1':
 			with open(path, "a") as text_file:
 				#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
-				text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}\n".format(str(epoch),
+				text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16}\n".format(str(epoch),
 					str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['f1_score_weighted']),str(loss[0]),str(loss[1]),
 					str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),
 					str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
 					str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7]),str(metrics['per_class_acc'][8]),
-					str(metrics['per_class_acc'][9]),str(metrics['per_class_acc'][10])))
+					str(metrics['per_class_acc'][9])))
+		elif dataset=='seq2':
+			with open(path, "a") as text_file:
+				#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
+				text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15}\n".format(str(epoch),
+					str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['f1_score_weighted']),str(loss[0]),str(loss[1]),
+					str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),
+					str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
+					str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7]),str(metrics['per_class_acc'][8]),
+					str(metrics['per_class_acc'][9])))
 				
+					
 			
 	def metrics_per_class_from_im_get(self,name='im_reconstructed_rgb_test_predictionplen64_3.png',folder='../results/reconstructed/',average=None):
 		data={}
@@ -963,10 +973,10 @@ class NetModel(NetObject):
 				metrics_val=data.metrics_get(data.patches['val'],debug=0)
 
 				self.early_stop_check(metrics_val,epoch)
-				if epoch==1000 or epoch==700 or epoch==500 or epoch==1200:
-					self.early_stop['signal']=True
-				else:
-					self.early_stop['signal']=False
+				#if epoch==1000 or epoch==700 or epoch==500 or epoch==1200:
+				#	self.early_stop['signal']=True
+				#else:
+				#	self.early_stop['signal']=False
 				if self.early_stop['signal']==True:
 					self.graph.save('model_'+str(epoch)+'.h5')
 
@@ -974,7 +984,7 @@ class NetModel(NetObject):
 				metrics_val['per_class_acc'][np.isnan(metrics_val['per_class_acc'])]=-1
 				print(metrics_val['per_class_acc'])
 				
-				if epoch % 50 == 0:
+				if epoch % 5 == 0:
 					print("Writing val...")
 					#print(txt['val']['metrics'])
 					for i in range(len(txt['val']['metrics'])):
@@ -1018,6 +1028,7 @@ class NetModel(NetObject):
 			metrics=data.metrics_get(data.patches['test'],debug=1)
 			
 			if self.early_stop['best_updated']==True:
+				print("Updating early stop...")
 				self.early_stop['best_predictions']=data.patches['test']['prediction']
 			if self.early_stop["signal"]==True:
 				print("EARLY STOP EPOCH",epoch,metrics)
@@ -1026,7 +1037,7 @@ class NetModel(NetObject):
 				break
 				
 			# Check early stop and store results if they are the best
-			if epoch % 50 == 0:
+			if epoch % 5 == 0:
 				print("Writing to file...")
 				for i in range(len(txt['test']['metrics'])):
 

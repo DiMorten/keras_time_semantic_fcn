@@ -498,11 +498,82 @@ class Dataset(NetObject):
 		self.patches['train']['label']=np.delete(self.patches['train']['label'],self.patches['val']['idx'],axis=0)
 		#deb.prints(data.patches['train']['in'].shape)
 		#deb.prints(data.patches['train']['label'].shape)
+	def semantic_balance(self,samples_per_class=500):
+		print("data.semantic_balance")
+		
+		# Count test
+		patch_count=np.zeros(self.class_n)
+
+		for clss in range(self.class_n):
+			patch_count[clss]=np.count_nonzero(np.isin(self.patches['test']['label'].argmax(axis=3),clss).sum(axis=(1,2)))
+		deb.prints(patch_count.shape)
+		print("Test",patch_count)
+		
+		# Count train
+		patch_count=np.zeros(self.class_n)
+
+		for clss in range(self.class_n):
+			patch_count[clss]=np.count_nonzero(np.isin(self.patches['train']['label'].argmax(axis=3),clss).sum(axis=(1,2)))
+		deb.prints(patch_count.shape)
+		print("Train",patch_count)
+		
+		# Start balancing
+		balance={}
+		balance["out_n"]=self.class_n*samples_per_class
+		balance["out_in"]=np.zeros((balance["out_n"],) + self.patches["train"]["in"].shape[1::])
+
+		balance["out_labels"]=np.zeros((balance["out_n"],) + self.patches["train"]["label"].shape[1::])
+
+		label_int=self.patches['train']['label'].argmax(axis=3)
+		labels_flat=np.reshape(label_int,(label_int.shape[0],np.prod(label_int.shape[1:])))
+		k=0
+		for clss in range(1,self.class_n):
+			if patch_count[clss]==0:
+				continue
+			print(labels_flat.shape)
+			print(clss)
+			#print((np.count_nonzero(np.isin(labels_flat,clss))>0).shape)
+			idxs=np.any(labels_flat==clss,axis=1)
+			print(idxs.shape,idxs.dtype)
+			#labels_flat[np.count_nonzero(np.isin(labels_flat,clss))>0]
+
+			balance["in"]=self.patches['train']['in'][idxs]
+			balance["label"]=self.patches['train']['label'][idxs]
+
+
+			print(clss)
+			if balance["label"].shape[0]>samples_per_class:
+				replace=False
+			else:
+				replace=True
+			index_squeezed=range(balance["label"].shape[0])
+			index_squeezed = np.random.choice(index_squeezed, samples_per_class, replace=replace)
+			print(idxs.shape,index_squeezed.shape)
+			balance["out_labels"][k*samples_per_class:k*samples_per_class + samples_per_class] = balance["label"][index_squeezed]
+			balance["out_in"][k*samples_per_class:k*samples_per_class + samples_per_class] = balance["in"][index_squeezed]
+			k+=1
+		
+		idx = np.random.permutation(balance["out_labels"].shape[0])
+		self.patches['train']['in'] = balance["out_in"][idx]
+		self.patches['train']['label'] = balance["out_labels"][idx]
+
+		deb.prints(np.unique(self.patches['train']['label'],return_counts=True))
+		# Replicate
+		#balance={}
+		#for clss in range(1,self.class_n):
+		#	balance["data"]=data["train"]["in"][]
+			
+
+		#train_flat=np.reshape(self.patches['train']['label'],(self.patches['train']['label'].shape[0],np.prod(self.patches['train']['label'].shape[1:])))
+		#deb.prints(train_flat.shape)
+
+		#unique,counts=np.unique(train_flat,axis=1,return_counts=True)
+		#print(unique,counts)
 # ========== NetModel object implements model graph definition, train/testing, early stopping ================ #
 
 class NetModel(NetObject):
 	def __init__(self, batch_size_train=32, batch_size_test=200, epochs=30000, 
-		patience=30, eval_mode='metrics', val_set=True, *args, **kwargs):
+		patience=10, eval_mode='metrics', val_set=True, *args, **kwargs):
 
 		super().__init__(*args, **kwargs)
 		if self.debug >= 1:
@@ -788,10 +859,9 @@ class NetModel(NetObject):
 		#==============================START TRAIN/TEST LOOP============================#
 		for epoch in range(self.epochs):
 
-			#idxs=np.arange(data.patches['train']['in'].shape[0])
-			#idxs=np.random.shuffle(idxs)
-			#data.patches['train']['in']=data.patches['train']['in'][idxs]
-			#data.patches['train']['label']=data.patches['train']['label'][idxs]
+			idxs=np.random.permutation(data.patches['train']['in'].shape[0])
+			data.patches['train']['in']=data.patches['train']['in'][idxs]
+			data.patches['train']['label']=data.patches['train']['label'][idxs]
 			
 			self.metrics['train']['loss'] = np.zeros((1, 2))
 			self.metrics['test']['loss'] = np.zeros((1, 2))
@@ -951,6 +1021,9 @@ if __name__ == '__main__':
 	elif flag['data_create']==2:
 		data.create_load()
 
+
+	# If patch balancing
+	data.semantic_balance()
 
 	val_set=True
 	#val_set_mode='stratified'

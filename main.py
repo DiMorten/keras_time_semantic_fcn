@@ -2,7 +2,7 @@ from utils import *
 from keras.datasets import cifar10
 from keras.layers import Input, Dense, Conv2D, MaxPool2D, Flatten, Dropout, Conv2DTranspose
 # from keras.callbacks import ModelCheckpoint , EarlyStopping
-from keras.optimizers import Adam
+from keras.optimizers import Adam,Adagrad
 from keras.models import Model
 from keras import backend as K
 import keras
@@ -940,7 +940,7 @@ if __name__ == '__main__':
 		data.create_load()
 
 
-	val_set=True
+	val_set=False
 	#val_set_mode='stratified'
 	val_set_mode='stratified'
 	
@@ -957,8 +957,10 @@ if __name__ == '__main__':
 	data.label_unique=unique.copy()
 	
 
-	adam = Adam(lr=0.0001, beta_1=0.9)
-	
+	#adam = Adam(lr=0.001, beta_1=0.9)
+
+	adam = Adam(lr=0.001, beta_1=0.9)
+	#adam = Adagrad(lr=0.01)
 	model = NetModel(epochs=args.epochs, patch_len=args.patch_len,
 					 patch_step_train=args.patch_step_train, eval_mode=args.eval_mode,
 					 batch_size_train=args.batch_size_train,batch_size_test=args.batch_size_test,

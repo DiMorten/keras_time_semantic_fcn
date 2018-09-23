@@ -735,7 +735,7 @@ class NetModel(NetObject):
 
 	def early_stop_check(self,metrics,epoch,most_important='overall_acc'):
 
-		if metrics[most_important]>=self.early_stop['best']:
+		if metrics[most_important]>=self.early_stop['best'] and self.early_stop["signal"]==False:
 			self.early_stop['best']=metrics[most_important]
 			self.early_stop['count']=0
 			print("Best metric updated")
@@ -780,7 +780,7 @@ class NetModel(NetObject):
 		deb.prints(data.patches['test']['label'].shape)
 		deb.prints(self.batch['test']['n'])
 		
-
+		self.early_stop["signal"]=False
 		#if self.train_mode==
 
 		#data.im_reconstruct(subset='test',mode='label')
@@ -788,10 +788,10 @@ class NetModel(NetObject):
 		#==============================START TRAIN/TEST LOOP============================#
 		for epoch in range(self.epochs):
 
-			idxs=np.arange(data.patches['train']['in'].shape[0])
-			idxs=np.random.shuffle(idxs)
-			data.patches['train']['in']=data.patches['train']['in'][idxs]
-			data.patches['train']['label']=data.patches['train']['label'][idxs]
+			#idxs=np.arange(data.patches['train']['in'].shape[0])
+			#idxs=np.random.shuffle(idxs)
+			#data.patches['train']['in']=data.patches['train']['in'][idxs]
+			#data.patches['train']['label']=data.patches['train']['label'][idxs]
 			
 			self.metrics['train']['loss'] = np.zeros((1, 2))
 			self.metrics['test']['loss'] = np.zeros((1, 2))
@@ -888,8 +888,10 @@ class NetModel(NetObject):
 			
 
 			if self.early_stop["signal"]==True:
-				np.save(data.patches['test']['prediction'])
-				np.save(data.patches['test']['label'])
+				print("EARLY STOP EPOCH",epoch,metrics)
+				np.save("prediction.npy",data.patches['test']['prediction'])
+				np.save("labels.npy",data.patches['test']['label'])
+				break
 				
 			# Check early stop and store results if they are the best
 			if epoch % 50 == 0:

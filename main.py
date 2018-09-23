@@ -733,7 +733,7 @@ class NetModel(NetObject):
 
 		self.train_loop(data)
 
-	def early_stop_check(self,metrics,epoch,most_important='average_acc'):
+	def early_stop_check(self,metrics,epoch,most_important='overall_acc'):
 
 		if metrics[most_important]>=self.early_stop['best']:
 			self.early_stop['best']=metrics[most_important]
@@ -788,6 +788,11 @@ class NetModel(NetObject):
 		#==============================START TRAIN/TEST LOOP============================#
 		for epoch in range(self.epochs):
 
+			idxs=np.arange(data.patches['train']['in'].shape[0])
+			idxs=np.random.shuffle(idxs)
+			data.patches['train']['in']=data.patches['train']['in'][idxs]
+			data.patches['train']['label']=data.patches['train']['label'][idxs]
+			
 			self.metrics['train']['loss'] = np.zeros((1, 2))
 			self.metrics['test']['loss'] = np.zeros((1, 2))
 
@@ -881,6 +886,11 @@ class NetModel(NetObject):
 			# Get test metrics
 			metrics=data.metrics_get(data.patches['test'],debug=1)
 			
+
+			if self.early_stop["signal"]==True:
+				np.save(data.patches['test']['prediction'])
+				np.save(data.patches['test']['label'])
+				
 			# Check early stop and store results if they are the best
 			if epoch % 50 == 0:
 				print("Writing to file...")

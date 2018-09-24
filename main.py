@@ -353,13 +353,15 @@ class Dataset(NetObject):
 
 		return metrics
 
-	def metrics_write_to_txt(self,metrics,loss,epoch=0,path=None):
+	def metrics_write_to_txt(self,metrics,loss,epoch=0,path=None,dataset='hannover'):
 		#with open(self.report['best']['text_path'], "w") as text_file:
 		#    text_file.write("Overall_acc,average_acc,f1_score: {0},{1},{2},{3}".format(str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(epoch)))
 		#deb.prints(loss)
 		#deb.prints(loss[0])
 		#deb.prints(loss[1])
-		dataset='seq1'
+
+		#if metrics['per_class_acc'].shape[0]==
+		#dataset='seq1'
 		if dataset=='hannover':
 			with open(path, "a") as text_file:
 				#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
@@ -384,8 +386,7 @@ class Dataset(NetObject):
 					str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['f1_score_weighted']),str(loss[0]),str(loss[1]),
 					str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),
 					str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
-					str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7]),str(metrics['per_class_acc'][8]),
-					str(metrics['per_class_acc'][9])))
+					str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7]),str(metrics['per_class_acc'][8])))
 				
 					
 			
@@ -521,6 +522,18 @@ class Dataset(NetObject):
 	def semantic_balance(self,samples_per_class=500):
 		print("data.semantic_balance")
 		
+		if unique.shape[0]==10:
+			dataset='seq2'
+		elif unique.shape[0]==11:
+			dataset='seq1'
+		elif unique.shape[0]==9:
+			dataset='hannover'
+
+		if dataset=='seq1' or dataset=='seq2':
+			samples_per_class=500
+		else:
+			samples_per_class=60
+
 		# Count test
 		patch_count=np.zeros(self.class_n)
 
@@ -808,11 +821,12 @@ class NetModel(NetObject):
 			
 			if clss in unique:
 				self.loss_weights[clss]=weights_from_unique[unique==clss]
+				self.loss_weights[clss]=1
 			else:
 				self.loss_weights[clss]=0
 		deb.prints(self.loss_weights)
 
-		self.loss_weights[1:]=1
+		
 	def test(self,data):
 		data.patches['train']['batch_n'] = data.patches['train']['in'].shape[0]//self.batch['train']['size']
 		data.patches['test']['batch_n'] = data.patches['test']['in'].shape[0]//self.batch['test']['size']
@@ -856,6 +870,15 @@ class NetModel(NetObject):
 		print('oa={}, aa={}, f1={}, f1_wght={}'.format(metrics['overall_acc'],
 			metrics['average_acc'],metrics['f1_score'],metrics['f1_score_weighted']))
 	def train(self, data):
+		unique,count=np.unique(data.patches['test']['label'].argmax(axis=3),return_counts=True)
+		if unique.shape[0]==10:
+			self.dataset='seq2'
+		elif unique.shape[0]==11:
+			self.dataset='seq1'
+		elif unique.shape[0]==9:
+			self.dataset='hannover'
+		deb.prints(self.dataset)
+		#self.
 
 		# Random shuffle
 		##data.patches['train']['in'], data.patches['train']['label'] = shuffle(data.patches['train']['in'], data.patches['train']['label'], random_state=0)
@@ -899,7 +922,12 @@ class NetModel(NetObject):
 		txt['val']={'metrics':[],'epoch':[],'loss':[]}
 		txt['test']={'metrics':[],'epoch':[],'loss':[]}
 		
-		
+		if self.dataset=='hannover':
+			save_epoch_n=40
+			self.early_stop['patience']=30
+		else:
+			save_epoch_n=5
+			self.early_stop['patience']=10
 		#========= VAL INIT
 
 
@@ -930,9 +958,9 @@ class NetModel(NetObject):
 		#==============================START TRAIN/TEST LOOP============================#
 		for epoch in range(self.epochs):
 
-			idxs=np.random.permutation(data.patches['train']['in'].shape[0])
-			data.patches['train']['in']=data.patches['train']['in'][idxs]
-			data.patches['train']['label']=data.patches['train']['label'][idxs]
+			#idxs=np.random.permutation(data.patches['train']['in'].shape[0])
+			#data.patches['train']['in']=data.patches['train']['in'][idxs]
+			#data.patches['train']['label']=data.patches['train']['label'][idxs]
 			
 			self.metrics['train']['loss'] = np.zeros((1, 2))
 			self.metrics['test']['loss'] = np.zeros((1, 2))
@@ -984,12 +1012,14 @@ class NetModel(NetObject):
 				metrics_val['per_class_acc'][np.isnan(metrics_val['per_class_acc'])]=-1
 				print(metrics_val['per_class_acc'])
 				
-				if epoch % 5 == 0:
+
+				if epoch % save_epoch_n == 0:
 					print("Writing val...")
 					#print(txt['val']['metrics'])
 					for i in range(len(txt['val']['metrics'])):
 						data.metrics_write_to_txt(txt['val']['metrics'][i],np.squeeze(txt['val']['loss'][i]),
-							txt['val']['epoch'][i],path=self.report['val']['history_path'])
+							txt['val']['epoch'][i],path=self.report['val']['history_path'],
+							dataset=self.dataset)
 					txt['val']['metrics']=[]
 					txt['val']['loss']=[]
 					txt['val']['epoch']=[]
@@ -1030,19 +1060,20 @@ class NetModel(NetObject):
 			if self.early_stop['best_updated']==True:
 				print("Updating early stop...")
 				self.early_stop['best_predictions']=data.patches['test']['prediction']
-			if self.early_stop["signal"]==True:
+			if self.early_stop["signal"]==True or self.early_stop["count"]==self.early_stop["patience"]:
 				print("EARLY STOP EPOCH",epoch,metrics)
 				np.save("prediction.npy",self.early_stop['best_predictions'])
 				np.save("labels.npy",data.patches['test']['label'])
 				break
 				
 			# Check early stop and store results if they are the best
-			if epoch % 5 == 0:
+			if epoch % save_epoch_n == 0:
 				print("Writing to file...")
 				for i in range(len(txt['test']['metrics'])):
 
 					data.metrics_write_to_txt(txt['test']['metrics'][i],np.squeeze(txt['test']['loss'][i]),
-						txt['test']['epoch'][i],path=self.report['best']['text_history_path'])
+						txt['test']['epoch'][i],path=self.report['best']['text_history_path'],
+						dataset=self.dataset)
 				txt['test']['metrics']=[]
 				txt['test']['loss']=[]
 				txt['test']['epoch']=[]

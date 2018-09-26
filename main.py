@@ -1195,7 +1195,7 @@ if __name__ == '__main__':
 
 	
 	# If patch balancing
-	data.semantic_balance()
+	data.semantic_balance(1000)
 
 	# ===
 

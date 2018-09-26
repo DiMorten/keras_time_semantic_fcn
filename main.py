@@ -49,7 +49,7 @@ parser.add_argument('-db', '--debug', dest='debug',
 parser.add_argument('-ep', '--epochs', dest='epochs',
 					type=int, default=8000, help='patch len')
 parser.add_argument('-pt', '--patience', dest='patience',
-					type=int, default=300, help='patience')
+					type=int, default=10, help='patience')
 
 parser.add_argument('-bstr', '--batch_size_train', dest='batch_size_train',
 					type=int, default=32, help='patch len')
@@ -143,6 +143,53 @@ class Dataset(NetObject):
 		deb.prints(self.patches['test']['in'].shape)
 		deb.prints(self.patches['train']['label'].shape)
 		
+		unique=np.unique(self.patches['train']['label'])
+		if unique.shape[0]==11:
+			self.dataset='seq1'
+		elif unique.shape[0]==10:
+			self.dataset='seq2'
+		
+		if self.dataset=='seq2':
+			#self.patches['train']['label']=np.where(self.patches['train']['label']==)
+			shape = self.patches['train']['label'].shape
+			self.patches['train']['label']=np.reshape(self.patches['train']['label'],-1)
+			self.patches['train']['label'][self.patches['train']['label']>=6]-=1
+			self.patches['train']['label'][self.patches['train']['label']>=2]-=1
+			self.patches['train']['label']=np.reshape(self.patches['train']['label'],shape)
+			deb.prints(self.patches['train']['label'].shape)
+			
+
+
+			shape = self.patches['test']['label'].shape
+			self.patches['test']['label']=np.reshape(self.patches['test']['label'],-1)
+			self.patches['test']['label'][self.patches['test']['label']>=6]-=1
+			
+			self.patches['test']['label'][self.patches['test']['label']>=2]-=1
+			self.patches['test']['label']=np.reshape(self.patches['test']['label'],shape)
+			deb.prints(self.patches['test']['label'].shape)
+			
+
+			self.class_n=10 #9 plus background
+		
+		elif self.dataset=='seq1':
+			#self.patches['train']['label']=np.where(self.patches['train']['label']==)
+			shape = self.patches['train']['label'].shape
+			self.patches['train']['label']=np.reshape(self.patches['train']['label'],-1)
+			self.patches['train']['label'][self.patches['train']['label']>=6]-=1
+			self.patches['train']['label']=np.reshape(self.patches['train']['label'],shape)
+			deb.prints(self.patches['train']['label'].shape)
+			
+
+
+			shape = self.patches['test']['label'].shape
+			self.patches['test']['label']=np.reshape(self.patches['test']['label'],-1)
+			self.patches['test']['label'][self.patches['test']['label']>=6]-=1
+			
+			self.patches['test']['label']=np.reshape(self.patches['test']['label'],shape)
+			deb.prints(self.patches['test']['label'].shape)
+			
+
+			self.class_n=11 #10 plus background
 		print("Switching to one hot")
 		self.patches['train']['label']=self.batch_label_to_one_hot(self.patches['train']['label'])
 		self.patches['test']['label']=self.batch_label_to_one_hot(self.patches['test']['label'])
@@ -359,8 +406,8 @@ class Dataset(NetObject):
 		#deb.prints(loss)
 		#deb.prints(loss[0])
 		#deb.prints(loss[1])
-		dataset='campo_verde'
-		if dataset=='hannover':
+		#dataset='campo_verde'
+		if self.dataset=='hannover':
 			with open(path, "a") as text_file:
 				#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
 				text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}\n".format(str(epoch),
@@ -368,16 +415,32 @@ class Dataset(NetObject):
 					str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),
 					str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
 					str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7])))
-		elif dataset=='campo_verde':
-		with open(path, "a") as text_file:
-			#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
-			text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}\n".format(str(epoch),
-				str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['f1_score_weighted']),str(loss[0]),str(loss[1]),
-				str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),
-				str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
-				str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7]),str(metrics['per_class_acc'][8]),
-				str(metrics['per_class_acc'][9]),str(metrics['per_class_acc'][10])))
-			
+		elif metrics['per_class_acc'].shape[0]==10:
+			with open(path, "a") as text_file:
+				#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
+				text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16}\n".format(str(epoch),
+					str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['f1_score_weighted']),str(loss[0]),str(loss[1]),
+					str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),
+					str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
+					str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7]),str(metrics['per_class_acc'][8]),
+					str(metrics['per_class_acc'][9])))
+		elif metrics['per_class_acc'].shape[0]==9:
+			with open(path, "a") as text_file:
+				#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
+				text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15}\n".format(str(epoch),
+					str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['f1_score_weighted']),str(loss[0]),str(loss[1]),
+					str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),
+					str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
+					str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7]),str(metrics['per_class_acc'][8])))
+		elif metrics['per_class_acc'].shape[0]==8:
+			with open(path, "a") as text_file:
+				#text_file.write("{0},{1},{2},{3}\n".format(str(epoch),str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score'])))
+				text_file.write("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}\n".format(str(epoch),
+					str(metrics['overall_acc']),str(metrics['average_acc']),str(metrics['f1_score']),str(metrics['f1_score_weighted']),str(loss[0]),str(loss[1]),
+					str(metrics['per_class_acc'][0]),str(metrics['per_class_acc'][1]),str(metrics['per_class_acc'][2]),
+					str(metrics['per_class_acc'][3]),str(metrics['per_class_acc'][4]),str(metrics['per_class_acc'][5]),
+					str(metrics['per_class_acc'][6]),str(metrics['per_class_acc'][7])))
+				
 			
 	def metrics_per_class_from_im_get(self,name='im_reconstructed_rgb_test_predictionplen64_3.png',folder='../results/reconstructed/',average=None):
 		data={}
@@ -877,8 +940,8 @@ class NetModel(NetObject):
 			if self.early_stop["count"]>=self.early_stop["patience"]:
 				self.early_stop["signal"]=True
 
-			else:
-				self.early_stop["signal"]=False
+			#else:
+				#self.early_stop["signal"]=False
 			
 			
 	def train_loop(self, data):
@@ -963,10 +1026,10 @@ class NetModel(NetObject):
 				metrics_val=data.metrics_get(data.patches['val'],debug=0)
 
 				self.early_stop_check(metrics_val,epoch)
-				if epoch==1000 or epoch==700 or epoch==500 or epoch==1200:
-					self.early_stop['signal']=True
-				else:
-					self.early_stop['signal']=False
+				#if epoch==1000 or epoch==700 or epoch==500 or epoch==1200:
+				#	self.early_stop['signal']=True
+				#else:
+				#	self.early_stop['signal']=False
 				if self.early_stop['signal']==True:
 					self.graph.save('model_'+str(epoch)+'.h5')
 
@@ -974,7 +1037,7 @@ class NetModel(NetObject):
 				metrics_val['per_class_acc'][np.isnan(metrics_val['per_class_acc'])]=-1
 				print(metrics_val['per_class_acc'])
 				
-				if epoch % 50 == 0:
+				if epoch % 5 == 0:
 					print("Writing val...")
 					#print(txt['val']['metrics'])
 					for i in range(len(txt['val']['metrics'])):
@@ -1019,6 +1082,7 @@ class NetModel(NetObject):
 			
 			if self.early_stop['best_updated']==True:
 				self.early_stop['best_predictions']=data.patches['test']['prediction']
+			print(self.early_stop['signal'])
 			if self.early_stop["signal"]==True:
 				print("EARLY STOP EPOCH",epoch,metrics)
 				np.save("prediction.npy",self.early_stop['best_predictions'])
@@ -1026,7 +1090,7 @@ class NetModel(NetObject):
 				break
 				
 			# Check early stop and store results if they are the best
-			if epoch % 50 == 0:
+			if epoch % 5 == 0:
 				print("Writing to file...")
 				for i in range(len(txt['test']['metrics'])):
 
@@ -1074,16 +1138,24 @@ class NetModel(NetObject):
 flag = {"data_create": 2, "label_one_hot": True}
 if __name__ == '__main__':
 	#
+	
+	
+	#if data.dataset=='seq2':
+	#	args.class_n=10
 
 	data = Dataset(patch_len=args.patch_len, patch_step_train=args.patch_step_train,
 		patch_step_test=args.patch_step_test,exp_id=args.exp_id,
 		path=args.path, t_len=args.t_len, class_n=args.class_n)
+
+	#data.dataset='seq2'
+
 	if flag['data_create']==1:
 		data.create()
 	elif flag['data_create']==2:
 		data.create_load()
 
-
+	
+	
 	
 	val_set=True
 	#val_set_mode='stratified'
@@ -1109,6 +1181,7 @@ if __name__ == '__main__':
 					 batch_size_train=args.batch_size_train,batch_size_test=args.batch_size_test,
 					 patience=args.patience,t_len=args.t_len,class_n=args.class_n,path=args.path,
 					 val_set=val_set)
+	model.class_n=data.class_n
 	model.build()
 
 
@@ -1120,6 +1193,7 @@ if __name__ == '__main__':
 		deb.prints(data.patches['val']['label'].shape)
 	
 
+	
 	# If patch balancing
 	data.semantic_balance()
 

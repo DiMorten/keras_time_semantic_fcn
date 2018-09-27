@@ -142,7 +142,7 @@ class Dataset(NetObject):
 		deb.prints(self.patches['train']['in'].shape)
 		deb.prints(self.patches['test']['in'].shape)
 		deb.prints(self.patches['train']['label'].shape)
-		
+		self.dataset=None
 		unique=np.unique(self.patches['train']['label'])
 		if unique.shape[0]==11:
 			self.dataset='seq1'
@@ -841,6 +841,20 @@ class NetModel(NetObject):
 						activation='softmax', batchsize=32,input_tensor=x)
 		self.graph = Model(in_im, out)
 		print(self.graph.summary())
+	def build(self):
+		deb.prints(self.t_len)
+		in_im = Input(shape=(self.t_len,self.patch_len, self.patch_len, self.channel_n))
+
+		#x = keras.layers.Permute((1,2,0,3))(in_im)
+		x = keras.layers.Permute((2,3,1,4))(in_im)
+		
+		x = Reshape((self.patch_len, self.patch_len,self.t_len*self.channel_n), name='predictions')(x)
+		out = DenseNetFCN((32, 32, self.t_len*self.channel_n), nb_dense_block=2, growth_rate=16, dropout_rate=0.2,
+						nb_layers_per_block=2, upsampling_type='deconv', classes=self.class_n, 
+						activation='softmax', batchsize=32,input_tensor=x)
+		self.graph = Model(in_im, out)
+		print(self.graph.summary())
+
 	def compile(self, optimizer, loss='binary_crossentropy', metrics=['accuracy',metrics.categorical_accuracy],loss_weights=None):
 		loss_weighted=weighted_categorical_crossentropy(loss_weights)
 		#sparse_accuracy_ignoring_last_label()
@@ -1154,7 +1168,10 @@ if __name__ == '__main__':
 	elif flag['data_create']==2:
 		data.create_load()
 
-	
+	if data.dataset=='seq1' or data.dataset=='seq2':
+		args.patience=10
+	else:
+		args.patience=50
 	
 	
 	val_set=True
@@ -1195,7 +1212,9 @@ if __name__ == '__main__':
 
 	
 	# If patch balancing
-	data.semantic_balance(1000)
+	data.semantic_balance(150)
+	if data.dataset=='seq1' or data.dataset=='seq2':
+		data.semantic_balance(1000)
 
 	# ===
 
